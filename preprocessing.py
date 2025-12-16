@@ -21,7 +21,7 @@ def is_bundle_or_junk(text):
     if not isinstance(text, str): return False
     text = text.lower()
     bundle_keywords = ['bundle', ' pack', 'collection', 'edition', 'season pass', 'dlc', 'franchise']
-    junk_keywords = ['prologue', 'playtest', 'demo', 'soundtrack', ' artbook', 'server', 'beta', 'test branch']
+    junk_keywords = ['prologue', 'playtest', 'demo', 'soundtrack', ' artbook', 'server', 'beta', 'test branch','modkit']
     all_bad_keywords = bundle_keywords + junk_keywords
     if any(keyword in text for keyword in all_bad_keywords):
         return True
@@ -46,12 +46,11 @@ df_steam = df_steam[~df_steam['name'].apply(is_bundle_or_junk)]
 # B. Tarih ve Platform Düzeltme
 df_steam['release_year'] = pd.to_datetime(df_steam['release_date'], errors='coerce').dt.year
 
-# Steam'deki True/False sütunlarını 1/0'a çevirelim (Garanti olsun)
 for plat in ['windows', 'mac', 'linux']:
     if plat in df_steam.columns:
         df_steam[plat] = df_steam[plat].astype(int)
     else:
-        df_steam[plat] = 0 # Eğer sütun yoksa 0 yap
+        df_steam[plat] = 0 
 
 # C. Filtreleme
 df_steam = df_steam[df_steam["num_reviews_total"] >= 500]
@@ -62,36 +61,30 @@ df_steam = df_steam.sort_values('num_reviews_total', ascending=False)
 df_steam = df_steam.drop_duplicates(subset=['temp_clean'], keep='first')
 df_steam = df_steam.drop(columns=['temp_clean'])
 
-# E. Gereksizleri Sil (Platform sütunlarını SİLMİYORUZ!)
+# E. Gereksizleri Sil 
+# NOT: 'pct_pos_total' (inceleme puanı) silinmemeli, analiz için çok önemli!
 cols_to_drop_steam = [
     "reviews", "dlc_count", "release_date",
     "detailed_description", "about_the_game", "short_description",
     "website", "support_url", "support_email", "metacritic_url",
     "achievements", "notes", "packages", "screenshots", "movies","full_audio_languages", 
-    "discount","user_score","score_rank","estimated_owners"
+    "discount","user_score","score_rank","required_age","peak_ccu"
 ]
 df_steam = df_steam.drop(columns=[c for c in cols_to_drop_steam if c in df_steam.columns], axis=1)
 
 
 # --- ADIM 2: EPIC ÖN İŞLEME ---
 
-# A. Bundle Temizliği
 df_epic = df_epic[~df_epic['name'].apply(is_bundle_or_junk)]
 
-# B. Fiyat ve Tarih
 df_epic['price'] = pd.to_numeric(df_epic['price'], errors='coerce').fillna(0) / 100
 df_epic['release_year'] = pd.to_datetime(df_epic['release_date'], errors='coerce').dt.year
 
-# C. PLATFORM AYRIŞTIRMA (YENİ EKLENDİ)
-# Epic'te 'platform' sütunu "Windows, Mac OS" gibi metin içeriyor.
-# Bunu Steam formatına (windows, mac, linux) çeviriyoruz.
-df_epic['platform'] = df_epic['platform'].fillna('Windows') # Boşsa Windows varsay
+df_epic['platform'] = df_epic['platform'].fillna('Windows')
 df_epic['windows_epic'] = df_epic['platform'].astype(str).str.contains('Windows', case=False).astype(int)
 df_epic['mac_epic'] = df_epic['platform'].astype(str).str.contains('Mac', case=False).astype(int)
-# Epic'te Linux genelde yazmaz ama varsa alalım
 df_epic['linux_epic'] = df_epic['platform'].astype(str).str.contains('Linux', case=False).astype(int)
 
-# D. Sütun İsimleri ve Tekilleştirme
 df_epic = df_epic.rename(columns={
     'name': 'name_epic', 'price': 'price_epic', 'genres': 'genres_epic',
     'release_year': 'release_year_epic', 'developer': 'developer_epic'
@@ -102,7 +95,6 @@ df_epic = df_epic.sort_values('price_epic')
 df_epic = df_epic.drop_duplicates(subset=['temp_clean'], keep='first')
 df_epic = df_epic.drop(columns=['temp_clean'])
 
-# Sütun seçimi (Platformları ekledik)
 epic_keep_cols = ['name_epic', 'price_epic', 'genres_epic', 'release_year_epic', 
                   'developer_epic', 'windows_epic', 'mac_epic', 'linux_epic']
 df_epic = df_epic[[c for c in epic_keep_cols if c in df_epic.columns]]
@@ -123,56 +115,43 @@ df_final['final_price'] = df_final['price'].combine_first(df_final['price_epic']
 df_final['genres'] = df_final['genres'].combine_first(df_final['genres_epic'])
 df_final['release_year'] = df_final['release_year'].combine_first(df_final['release_year_epic']).fillna(2020)
 
-# PLATFORM BİRLEŞTİRME (YENİ)
-# Steam verisi yoksa Epic verisini kullan
-df_final['windows'] = df_final['windows'].combine_first(df_final['windows_epic']).fillna(1) # PC oyunu olduğu için 1 varsayılabilir
+# Puan Doldurma (Kritik): Epic oyunlarında puan yoksa ortalama (70) veya steam ortalamasını verelim
+if 'pct_pos_total' in df_final.columns:
+    avg_score = df_final['pct_pos_total'].mean()
+    df_final['pct_pos_total'] = df_final['pct_pos_total'].fillna(avg_score)
+else:
+    df_final['pct_pos_total'] = 70 # Sütun yoksa varsayılan oluştur
+
+df_final['windows'] = df_final['windows'].combine_first(df_final['windows_epic']).fillna(1)
 df_final['mac'] = df_final['mac'].combine_first(df_final['mac_epic']).fillna(0)
 df_final['linux'] = df_final['linux'].combine_first(df_final['linux_epic']).fillna(0)
 
-# Platform Kaynağı
 df_final['on_steam'] = df_final['name'].notna().astype(int)
 df_final['on_epic'] = df_final['name_epic'].notna().astype(int)
 
-# --- ADIM: VR ONLY OYUNLARI SİLME ---
 
-# 1. Kategoriler sütununu string yapalım (Hata almamak için)
+# --- ADIM 5: VR TEMİZLİĞİ ---
+# Categories işlemi en son yapılmalı, burada sadece filtreliyoruz
 df_final['categories'] = df_final['categories'].fillna('').astype(str)
-
-# 2. İçinde 'VR Only' veya 'Tracked Motion Controller Support' geçenleri buluyoruz.
 vr_keywords = 'VR Only'
-
-# 3. Tilde (~) işareti ile "Bunları İçermeyenleri" alıyoruz.
 df_final = df_final[~df_final['categories'].str.contains(vr_keywords, case=False, na=False)]
 
-# --- ADIM 5: MANUEL OYUN EKLEME (PLATFORMLAR DAHİL) ---
+
+# --- ADIM 6: MANUEL OYUN EKLEME ---
 
 manual_games = [
     {
-        'final_name': 'League of Legends', 'final_price': 0.0,
-        'genres': 'MOBA, Strategy, RPG', 'release_year': 2009,
-        'on_steam': 0, 'on_epic': 1, 'num_reviews_total': 999999,
-        'windows': 1, 'mac': 1, 'linux': 0, # LoL Mac'te var
-        'header_image': 'https://cdn2.unrealengine.com/league-of-legends-artwork-1920x1080-254070248.jpg'
-    },
-    {
-        'final_name': 'Valorant', 'final_price': 0.0,
-        'genres': 'FPS, Tactical, Action', 'release_year': 2020,
-        'on_steam': 0, 'on_epic': 1, 'num_reviews_total': 500000,
-        'windows': 1, 'mac': 0, 'linux': 0, # Valorant sadece Windows
-        'header_image': 'https://cdn2.unrealengine.com/valorant-artwork-1920x1080-1a8971e3b683.jpg'
-    },
-    {
         'final_name': 'Minecraft', 'final_price': 29.99,
         'genres': 'Sandbox, Survival, Adventure', 'release_year': 2011,
-        'on_steam': 0, 'on_epic': 0, 'num_reviews_total': 1000000,
-        'windows': 1, 'mac': 1, 'linux': 1, # Minecraft her yerde var
+        'on_steam': 0, 'on_epic': 0, 'num_reviews_total': 1000000, 'pct_pos_total': 95,
+        'windows': 1, 'mac': 1, 'linux': 1,
         'header_image': 'https://image.api.playstation.com/vulcan/img/rnd/202010/2119/UtZW37q1Q06a5961Q8k5s583.png'
     }
 ]
 df_final = pd.concat([df_final, pd.DataFrame(manual_games)], ignore_index=True)
 
 
-# --- ADIM 6: GLOBAL TEMİZLİK ---
+# --- ADIM 7: GLOBAL TEMİZLİK (SANSÜR & DİL) ---
 
 def has_non_latin(text):
     if not isinstance(text, str): return False
@@ -185,171 +164,224 @@ df_final['text_search'] = (df_final['final_name'].astype(str) + " " + df_final['
 mask_banned = df_final['text_search'].apply(lambda x: any(ban in x for ban in banned_keywords))
 df_final = df_final[~mask_banned]
 
-# --- ADIM 1: METİN HAVUZU OLUŞTURMA (GENRES + TAGS) ---
-# İkisini string'e çevir, yan yana ekle ve küçük harf yap.
-# Örnek Sonuç: "action, indie, rpg {'action': 500, 'story rich': 200}"
+
+# --- ADIM 8: GENRE + TAG BİRLEŞTİRME (One-Hot) ---
+
 df_final['combined_text'] = (df_final['genres'].fillna('') + " " + df_final['tags'].fillna('')).astype(str).str.lower()
 
-# --- ADIM 2: HEDEF TÜRLERİ BELİRLEME VE SÜTUNLAŞTIRMA ---
-# Hangi türleri kolon yapmak istiyoruz?
-# Buraya hem Ana Türleri (Action) hem de Kritik Etiketleri (Open World) ekliyoruz.
-
 target_genres = {
-    # ANA TÜRLER
-    'gen_action': ['action', 'shooter', 'fps', 'tps'], # Shooter görürse de Action say
+    'gen_action': ['action', 'shooter', 'fps', 'tps'],
     'gen_adventure': ['adventure', 'exploration'],
     'gen_rpg': ['rpg', 'role-playing', 'role playing'],
     'gen_simulation': ['simulation', 'sim'],
     'gen_strategy': ['strategy', 'rts', 'turn-based', 'tactical'],
-    'gen_sports_racing': ['sports', 'racing'], # Genelde az oldukları için birleştirilebilir
-    'gen_horror': ['horror', 'survival horror'], # Taglerden gelir
-    
-    # GÖRSEL / TEKNİK
+    'gen_sports_racing': ['sports', 'racing'],
+    'gen_horror': ['horror', 'survival horror'],
     'gen_2d': ['2d', 'pixel', 'platformer'],
     'gen_3d': ['3d', 'realistic'],
     'gen_anime': ['anime', 'visual novel', 'jrpg'],
-    
-    # OYNANIŞ (TAG'lerden gelenler)
     'gen_open_world': ['open world', 'sandbox'],
     'gen_rogue': ['rogue-like', 'rogue-lite', 'roguelike'],
     'gen_scifi': ['sci-fi', 'space', 'cyberpunk', 'futuristic'],
     'gen_survival': ['survival'],
+    'gen_indie': ['indie'],
     'gen_puzzle': ['puzzle', 'logic'],
     'gen_arcade': ['arcade', 'casual'],
     'gen_story': ['story rich', 'narrative', 'visual novel']
 }
 
-# Döngü ile sütunları oluştur
-print("Türler birleştiriliyor ve sütunlaştırılıyor...")
-
-
-# --- DİL SÜTUNU TEMİZLİĞİ ---
-
-# 1. Önce sütunu string yap ve küçük harfe çevir
-# fillna('english') yapıyoruz çünkü Epic oyunlarında bu veri yok.
-# Verisi olmayan oyunun en azından İngilizce olduğunu varsaymak güvenlidir.
-df_final['supported_languages'] = df_final['supported_languages'].fillna('english').astype(str).str.lower()
-
-# 2. İNGİLİZCE VAR MI?
-# "english" kelimesi geçiyorsa 1, yoksa 0
-df_final['lang_english'] = df_final['supported_languages'].apply(lambda x: 1 if 'english' in x else 0)
-
-# 3. TÜRKÇE VAR MI?
-# Hem "turkish" hem de "türkçe" kelimelerini arayalım (Bazen yerel dilde yazıyorlar)
-df_final['lang_turkish'] = df_final['supported_languages'].apply(lambda x: 1 if 'turkish' in x or 'türkçe' in x else 0)
-
-# 4. TEMİZLİK
-# Orijinal karmaşık sütunu siliyoruz
-df_final = df_final.drop(columns=['supported_languages'])
-
-# --- KONTROL ---
-print("✅ Dil ayrıştırma tamamlandı.")
-print(df_final[['final_name', 'lang_english', 'lang_turkish']].head())
-
-# Türkçe desteği olan kaç oyun var bakalım?
-print(f"\nTürkçe Destekli Oyun Sayısı: {df_final['lang_turkish'].sum()}")
-
 for col_name, keywords in target_genres.items():
-    # Lambda: Metin havuzunda bu anahtar kelimelerden HERHANGİ BİRİ var mı?
     df_final[col_name] = df_final['combined_text'].apply(lambda x: 1 if any(k in x for k in keywords) else 0)
 
-# --- ADIM 3: TEMİZLİK ---
-# Artık genres, tags ve geçici combined_text sütunlarına ihtiyacımız kalmadı.
-# Hepsini tek potada erittik.
 cols_to_drop = ['genres', 'tags', 'combined_text']
 df_final = df_final.drop(columns=cols_to_drop)
 
-print("✅ İşlem Tamam! Genres ve Tags birleştirildi.")
-print(f"Yeni Sütun Sayısı: {len(df_final.columns)}")
+
+# --- ADIM 9: DİL DESTEĞİ ---
+
+df_final['supported_languages'] = df_final['supported_languages'].fillna('english').astype(str).str.lower()
+df_final['lang_english'] = df_final['supported_languages'].apply(lambda x: 1 if 'english' in x else 0)
+df_final['lang_turkish'] = df_final['supported_languages'].apply(lambda x: 1 if 'turkish' in x or 'türkçe' in x else 0)
+df_final = df_final.drop(columns=['supported_languages'])
+
+
+# --- ADIM 10: KATEGORİ AYRIŞTIRMA (SON AŞAMA) ---
+
+# DÜZELTME BURADA: Manuel eklenen oyunlardan gelen NaN (float) değerleri temizliyoruz.
+# Bu satır olmadan kod LoL veya Valorant satırına gelince hata verir.
+df_final['categories'] = df_final['categories'].fillna('').astype(str)
+
+df_final['cat_singleplayer'] = df_final['categories'].apply(lambda x: 1 if 'Single-player' in x else 0)
+df_final['cat_controller'] = df_final['categories'].str.contains('Controller', case=False).astype(int)
+df_final['cat_multiplayer'] = df_final['categories'].apply(lambda x: 1 if 'Multi-player' in x else 0)
+df_final['cat_coop'] = df_final['categories'].apply(lambda x: 1 if 'Co-op' in x else 0)
+df_final['cat_online_coop'] = df_final['categories'].apply(lambda x: 1 if 'Online Co-op' in x else 0)
+df_final['cat_pvp'] = df_final['categories'].apply(lambda x: 1 if 'PvP' in x else 0)
+df_final['cat_split_screen'] = df_final['categories'].apply(lambda x: 1 if 'Shared/Split Screen' in x else 0)
+df_final['cat_mmo'] = df_final['categories'].apply(lambda x: 1 if 'MMO' in x else 0)
+
+df_final = df_final.drop(columns=['categories'])
+
+# --- ADIM 11: YILI DÖNEMLERE AYIRMA (BINNING) ---
+
+# 1. is_retro: 2010 ve öncesi
+df_final['is_retro'] = df_final['release_year'].apply(lambda x: 1 if x <= 2010 else 0)
+
+# 2. is_mid_era: 2011 ile 2019 arası
+df_final['is_mid_era'] = df_final['release_year'].apply(lambda x: 1 if 2010 < x < 2020 else 0)
+
+# 3. is_recent: 2020 ve sonrası
+df_final['is_recent'] = df_final['release_year'].apply(lambda x: 1 if x >= 2020 else 0)
+
+# ÖNEMLİ: Orijinal 'release_year' sütununu SİLMİYORUZ!
+# Çünkü kullanıcıya sonucu gösterirken "Bu oyun 2015 yapımı" diye göstermemiz gerekecek.
+# Ama modeli eğitirken (scaling aşamasında) 'release_year'ı kullanmayıp bu 3 yeni sütunu kullanacağız.
+
+
+# --- ADIM 12: ÖNEMLİ GELİŞTİRİCİLERİ MODEL İÇİN İŞARETLEME ---
+
+# Geliştirici ve Yayıncı sütunlarını birleştirip arama yapacağız
+# (Bazen Rockstar hem yapımcı hem yayıncıdır, ikisine de bakmak lazım)
+df_final['dev_pub_combined'] = (df_final['developers'].fillna('') + " " + df_final['publishers'].fillna('')).astype(str).str.lower()
+
+# Oyun dünyasında tarzı en belirgin olan devleri seçelim:
+target_devs = {
+    'dev_rockstar': ['rockstar games', 'rockstar north'],
+    'dev_ubisoft': ['ubisoft', 'ubisoft montreal'],
+    'dev_valve': ['valve'], # Half-Life, Portal, L4D hissi başkadır
+    'dev_bethesda': ['bethesda', 'bethesda softworks'], # Skyrim, Fallout tarzı
+    'dev_ea': ['electronic arts', 'ea sports', 'dice', 'bioware'], # FIFA, BF, Mass Effect
+    'dev_square_enix': ['square enix'], # JRPG ve Final Fantasy tarzı
+    'dev_capcom': ['capcom'], # Resident Evil, DMC, Street Fighter
+    'dev_fromsoftware': ['fromsoftware'], # Souls oyunları (Çok kritik)
+    'dev_cdprojekt': ['cd projekt red'], # Witcher, Cyberpunk
+    'dev_sony': ['playstation', 'sony interactive', 'naughty dog', 'santa monica'] # God of War, Uncharted kalitesi
+}
+
+print("Önemli Geliştiriciler İşaretleniyor...")
+
+for col_name, keywords in target_devs.items():
+    df_final[col_name] = df_final['dev_pub_combined'].apply(lambda x: 1 if any(k in x for k in keywords) else 0)
+
+# Geçici sütunu siliyoruz
+df_final = df_final.drop(columns=['dev_pub_combined'])
 
 # Kontrol
-check_cols = ['final_name', 'gen_action', 'gen_rpg', 'gen_horror', 'gen_open_world']
-print(df_final[check_cols].head())
+print(df_final[['final_name', 'dev_rockstar', 'dev_valve', 'dev_ubisoft']].head())
+
+# Rockstar oyunlarına bakalım çalışmış mı?
+print("\nRockstar Oyunları:")
+print(df_final[df_final['dev_rockstar'] == 1]['final_name'].head())
+
+
+# # --- ADIM 13: EPIC GAMES TEMİZLİĞİ (ÇÖP VERİLERİ SİLME) ---
+
+# 1. KORUNACAK VIP OYUNLAR (Whitelist)
+# Buraya senin manuel eklediklerini ve silinmesini istemediğin büyük oyunları yaz.
+vip_epic_games = [
+    'Crysis Remastered',
+    'Crysis 2 Remastered',
+    'Dying Light 2 Stay Human',
+    'HITMAN 3',
+    'League of Legends',
+    'Legends of Runeterra',
+    'LEGO® Batman™: The Videogame',
+    "Marvel's Guardians of the Galaxy",
+    'NBA 2K21',
+    'VALORANT', 
+    'Splinter Cell Chaos Theory',
+    "Tom Clancy's Splinter Cell",
+    'Minecraft', 
+    'Fortnite', 
+    'Rocket League', 
+    'Genshin Impact', 
+    'Alan Wake 2',
+    'Fall Guys',
+    'Control'
+]
+
+# 2. SİLME MANTIĞI
+# Koşul: (Sadece Epic'te olsun) VE (Steam'de olmasın) VE (İsmi VIP listede OLMASIN)
+mask_trash_epic = (df_final['on_epic'] == 1) & \
+                  (df_final['on_steam'] == 0) & \
+                  (~df_final['final_name'].isin(vip_epic_games))
+
+# Silmeden önce kaç tane gidecek görelim
+print(f"Silinecek Niteliksiz Epic Oyunu Sayısı: {mask_trash_epic.sum()}")
+
+# Temizlik
+df_final = df_final[~mask_trash_epic]
+
+print(f"Temizlik Sonrası Toplam Oyun: {len(df_final)}")
+
+# KONTROL: VIP oyunlar duruyor mu?
+print("\nVIP Oyun Kontrolü:")
+print(df_final[df_final['final_name'].isin(vip_epic_games)]['final_name'].unique())
+
+
+# --- ADIM 14: NUM_REVIEWS SÜTUNUNU MODELE HAZIRLAMA ---
+
+# 1. Logaritma Alma (Uçurumu Kapatma)
+# np.log1p fonksiyonu log(1 + x) işlemini yapar. 
+# (+1 eklememizin sebebi, 0 incelemesi olan oyunlarda log(0) hatası almamaktır)
+df_final['reviews_log'] = np.log1p(df_final['num_reviews_total'])
+
+# 2. 0-1 Arasına Sıkıştırma (Normalization)
+# Modeldeki diğer tüm veriler 0 veya 1 olduğu için, bu veri de maksimum 1 olmalı.
+max_val = df_final['reviews_log'].max()
+min_val = df_final['reviews_log'].min()
+
+# Formül: (Değer - Min) / (Max - Min)
+df_final['norm_reviews'] = (df_final['reviews_log'] - min_val) / (max_val - min_val)
+
+df_final.drop('reviews_log',axis=1,inplace=True)
+
+# 3. Temizlik
+# Artık ham sayıya (ve ara işlem log sütununa) modelde ihtiyacımız yok.
+# SADECE norm_reviews kalacak.
+# NOT: Orijinal 'num_reviews_total' sütununu SİLMİYORUZ, çünkü kullanıcıya
+# "Bu oyunun 500k incelemesi var" diye göstermek için ona ihtiyacımız var.
+# Ama modele sadece 'norm_reviews' girecek.
+
+print("✅ İnceleme sayıları 0-1 arasına ölçeklendi.")
+print(df_final[['final_name', 'num_reviews_total', 'norm_reviews']].sort_values('num_reviews_total', ascending=False).head())
 
 
 
-# --- SON RÖTUŞLAR ---
+# --- ADIM 15: FİNAL TEMİZLİK VE MANUEL SİLME ---
+
+# Gereksiz sütunları temizle
 cols_to_clean = ['merge_key', 'name', 'name_epic', 'price', 'price_epic', 
                  'genres_epic', 'release_year_epic', 'developer_epic', 
-                 'windows_epic', 'mac_epic', 'linux_epic', 'text_search'] # Ara sütunları temizle
+                 'windows_epic', 'mac_epic', 'linux_epic', 'text_search']
 df_final = df_final.drop(columns=[c for c in cols_to_clean if c in df_final.columns])
 
+# Eksik sayısal veriler (Model bozulmasın diye 0 ile doldur)
 df_final['num_reviews_total'] = df_final['num_reviews_total'].fillna(0)
 df_final['metacritic_score'] = df_final['metacritic_score'].fillna(0)
-# Platform sayılarını int yap (görüntü kirliliğini önle)
+# pct_pos_total yukarda dolmuştu ama yine de kontrol
+if 'pct_pos_total' in df_final.columns:
+    df_final['pct_pos_total'] = df_final['pct_pos_total'].fillna(50)
+
+# Platformları int yap
 for col in ['windows', 'mac', 'linux']:
     df_final[col] = df_final[col].fillna(0).astype(int)
 
+# Tekrarları sil
 df_final = df_final.drop_duplicates(subset=['final_name'])
 
-import pandas as pd
-
-# Varsayalım ki df_final yüklü.
-
-# 1. Önce sütunu string yap ve temizle
-df_final['categories'] = df_final['categories'].fillna('').astype(str)
-
-# --- İSTENEN KATEGORİLERİ SÜTUNLAŞTIRMA ---
-
-# 1. Single-player
-df_final['cat_singleplayer'] = df_final['categories'].apply(lambda x: 1 if 'Single-player' in x else 0)
-
-# 2. Controller (Full, Partial ve Tracked hepsini birleştir)
-# Mantık: İçinde 'Controller' kelimesi geçen her şeyi 1 yap.
-df_final['cat_controller'] = df_final['categories'].str.contains('Controller', case=False).astype(int)
-
-# 3. Multiplayer (Sadece kelime bazlı)
-df_final['cat_multiplayer'] = df_final['categories'].apply(lambda x: 1 if 'Multi-player' in x else 0)
-
-# 4. Co-op (Genel)
-# Not: 'Online Co-op' da içinde 'Co-op' barındırdığı için burası 1 olacaktır.
-df_final['cat_coop'] = df_final['categories'].apply(lambda x: 1 if 'Co-op' in x else 0)
-
-# 5. Online Co-op (Özel)
-df_final['cat_online_coop'] = df_final['categories'].apply(lambda x: 1 if 'Online Co-op' in x else 0)
-
-# 6. PvP
-df_final['cat_pvp'] = df_final['categories'].apply(lambda x: 1 if 'PvP' in x else 0)
-
-# 7. Shared/Split Screen
-df_final['cat_split_screen'] = df_final['categories'].apply(lambda x: 1 if 'Shared/Split Screen' in x else 0)
-
-# 8. MMO (Listendeki 'memo' -> Verideki 'MMO')
-df_final['cat_mmo'] = df_final['categories'].apply(lambda x: 1 if 'MMO' in x else 0)
-
-
-# --- TEMİZLİK ---
-# İşini bitirdiğimiz orijinal 'categories' sütununu siliyoruz
-df_final = df_final.drop(columns=['categories'])
-
-# KONTROL
-print("✅ Kategori ayrıştırma tamamlandı.")
-print(df_final[['final_name', 'cat_singleplayer', 'cat_multiplayer', 'cat_controller', 'cat_mmo']].head())
-
-# Gereksiz verileri manuel silme işlemi
-df_final = df_final[df_final['final_name'] != 'VALORANT']
-df_final = df_final[df_final['final_name'] != 'OHDcore Mod Kit']
-df_final = df_final[df_final['final_name'] != 'iHeart: Radio, Music, Podcast']
-df_final = df_final[df_final['final_name'] != 'Discord']
-df_final = df_final[df_final['final_name'] != 'DCL The Game - Track Editor']
-df_final = df_final[df_final['final_name'] != 'Brave']
-df_final = df_final[df_final['final_name'] != 'Bus Simulator 21 - Modding Kit']
-df_final = df_final[df_final['final_name'] != 'Opera GX - The First Browser for Gamers']
-df_final = df_final[df_final['final_name'] != 'Itch.io']
-df_final = df_final[df_final['final_name'] != 'Itch.io']
-df_final = df_final[df_final['final_name'] != 'Itch.io']
-df_final = df_final[df_final['final_name'] != 'Itch.io']
-df_final = df_final[df_final['final_name'] != 'Itch.io']
-df_final = df_final[df_final['final_name'] != 'Itch.io']
-df_final = df_final[df_final['final_name'] != 'Itch.io']
-df_final = df_final[df_final['final_name'] != 'Itch.io']
-df_final = df_final[df_final['final_name'] != 'Itch.io']
-
+# Manuel İstenmeyenler Listesi
+# ÖNEMLİ: Valorant burada silinirse manuel eklediğin de gider. 
+# Eğer Epic'ten gelen hatalı "VALORANT" ise, büyük küçük harf duyarlı olduğu için sorun olmaz.
+unwanted_names = [
+    'OHDcore Mod Kit', 'iHeart: Radio, Music, Podcast', 'Discord', 
+    'DCL The Game - Track Editor', 'Brave', 
+    'Bus Simulator 21 - Modding Kit', 'Opera GX - The First Browser for Gamers', 
+    'Itch.io',"It Takes Two Friend's Pass"
+]
+# İsim listesinde varsa at
+df_final = df_final[~df_final['final_name'].isin(unwanted_names)]
 
 print(f"İşlem Tamam! Final Veri Sayısı: {len(df_final)}")
-# Kontrol: Sadece Epic'ten gelen (Steam'de olmayan) bir oyunun platform bilgisine bakalım
-print("\nSadece Epic'ten gelen örnek oyun (Platform Kontrolü):")
-only_epic = df_final[(df_final['on_epic']==1) & (df_final['on_steam']==0)].head(1)
-print(only_epic[['final_name', 'windows', 'mac']])
-
 df_final.to_csv("oyun_projesi_final_veri.csv", index=False)
+print("✅ Kayıt Başarılı.")
