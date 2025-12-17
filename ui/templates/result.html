@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tavsiyeler - {{ selected.name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <div class="result-container">
+        <a href="/" style="color: #888; text-decoration: none;">&larr; Yeni Arama Yap</a>
+        
+        <div class="selected-game-header">
+            <img src="{{ selected.image }}" alt="{{ selected.name }}" class="selected-game-img">
+            <div>
+                <h2 style="color: #ff00cc;">{{ selected.name }}</h2>
+                <p style="color: #ccc;">Buna benzer oyunlar arıyoruz...</p>
+                <div class="card-tags">
+                    <span>{{ selected.description }}</span>
+                </div>
+            </div>
+        </div>
+
+        <h3 style="margin-bottom: 20px;">Sizin İçin Seçtiklerimiz:</h3>
+
+        <div class="grid-container">
+            {% for game in recommendations %}
+            <div class="game-card">
+                <img src="{{ game.image }}" alt="{{ game.name }}" class="card-img">
+                <div class="card-content">
+                    <div class="card-title">{{ game.name }}</div>
+                    
+                    <div class="card-tags">
+                        {% for genre in game.genres %}
+                            <span>{{ genre }}</span>
+                        {% endfor %}
+                    </div>
+
+                    <div class="card-footer">
+                        <span class="price">{{ game.price }}</span>
+                        
+                        <div class="platforms">
+                            {% for store in game.stores %}
+                                <span class="store-badge {{ store|lower }}">{{ store }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div style="margin-top:10px; font-size: 0.8rem; color:#666;">
+                        {{ game.release }} | ⭐ {{ "{:,}".format(game.reviews) }} İnceleme
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</body>
+</html>

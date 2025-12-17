@@ -140,9 +140,12 @@ df_final = df_final[~df_final['categories'].str.contains(vr_keywords, case=False
 # --- ADIM 6: MANUEL OYUN EKLEME ---
 
 manual_games = [
-    {
+{
         'final_name': 'Minecraft', 'final_price': 29.99,
-        'genres': 'Sandbox, Survival, Adventure', 'release_year': 2011,
+        'genres': 'Sandbox, Survival, Adventure', 
+        # Minecraft için kritik özellikler eklendi:
+        'categories': 'Single-player, Multi-player, Co-op, Online Co-op, Shared/Split Screen, Full controller support',
+        'release_year': 2011,
         'on_steam': 0, 'on_epic': 0, 'num_reviews_total': 1000000, 'pct_pos_total': 95,
         'windows': 1, 'mac': 1, 'linux': 1,
         'header_image': 'https://image.api.playstation.com/vulcan/img/rnd/202010/2119/UtZW37q1Q06a5961Q8k5s583.png'
@@ -170,24 +173,27 @@ df_final = df_final[~mask_banned]
 df_final['combined_text'] = (df_final['genres'].fillna('') + " " + df_final['tags'].fillna('')).astype(str).str.lower()
 
 target_genres = {
-    'gen_action': ['action', 'shooter', 'fps', 'tps'],
-    'gen_adventure': ['adventure', 'exploration'],
-    'gen_rpg': ['rpg', 'role-playing', 'role playing'],
-    'gen_simulation': ['simulation', 'sim'],
-    'gen_strategy': ['strategy', 'rts', 'turn-based', 'tactical'],
+    'gen_action': ['action', 'shooter','action rpg','character action game','action roguelike','action-adventure'],
+    'gen_adventure': ['adventure', 'exploration','action-adventure'],
+    'gen_rpg': ['rpg', 'role-playing', 'role playing','jrpg','tactical rpg','crpg','action rpg','choose your own adventure'],
+    'gen_simulation': ['simulation', 'life sim','automobile sim','colony sim','space sim','walking simulator','job simulator','medical sim','farming sim'],
+    'gen_strategy': ['strategy', 'rts', 'turn-based strategy', 'tactical','grand strategy',],
     'gen_sports_racing': ['sports', 'racing'],
-    'gen_horror': ['horror', 'survival horror'],
-    'gen_2d': ['2d', 'pixel', 'platformer'],
-    'gen_3d': ['3d', 'realistic'],
+    'gen_horror': ['horror', 'survival horror','psychological horror',],
+    'gen_2d': ['2d', '2d platformer','2d fighter'],
+    'gen_3d': ['3d', '3d platformer','realistic'],
     'gen_anime': ['anime', 'visual novel', 'jrpg'],
-    'gen_open_world': ['open world', 'sandbox'],
-    'gen_rogue': ['rogue-like', 'rogue-lite', 'roguelike'],
-    'gen_scifi': ['sci-fi', 'space', 'cyberpunk', 'futuristic'],
-    'gen_survival': ['survival'],
+    'gen_open_world': ['open world','open world survival craft'],
+    'gen_sandbox':['sandbox'],
+    'gen_rogue': ['rogue-like', 'rogue-lite', 'roguelike','Action Roguelike'],
+    'gen_scifi': ['sci-fi', 'space', 'cyberpunk', 'futuristic', 'supernatural','spaceships'],
+    'gen_survival': ['survival','open world survival craft','survival horror'],
     'gen_indie': ['indie'],
-    'gen_puzzle': ['puzzle', 'logic'],
+    'gen_puzzle': ['puzzle', 'logic','puzzle-platformer'],
     'gen_arcade': ['arcade', 'casual'],
-    'gen_story': ['story rich', 'narrative', 'visual novel']
+    'gen_story': ['story rich','narrative', 'visual novel'],
+    'gen_fps':['fps','shooter','arena shooter','boomer shooter','first-person']
+    
 }
 
 for col_name, keywords in target_genres.items():
@@ -319,6 +325,133 @@ print("\nVIP Oyun Kontrolü:")
 print(df_final[df_final['final_name'].isin(vip_epic_games)]['final_name'].unique())
 
 
+# --- ADIM: EPIC GAMES ÖZEL OYUNLARINI MANUEL DOLDURMA ---
+# Bu blok, sadece Epic'te olan ama verileri eksik gelen dev oyunları tamir eder.
+
+print("🛠️ Epic Games Özel Oyunları Manuel Olarak Dolduruluyor...")
+
+# Oyunların özellik haritası
+# 'reviews': Tahmini inceleme sayısı (Steam standartlarına göre popülerlik)
+# 'traits': İşaretlenecek sütunlar (1 yapılacaklar)
+epic_manual_fix = {
+    "League of Legends": {
+        "reviews": 15000000, 
+        # LoL 3D'dir (İzometrik), Klavye/Mouse oynanır (Controller yok)
+        "traits": ["gen_rpg", "gen_strategy", "gen_3d", "cat_multiplayer", "cat_mmo", "cat_coop", "cat_pvp", "is_recent", "dev_riot"]
+    },
+    "VALORANT": {
+        "reviews": 10000000, 
+        # Valorant 3D FPS'tir. PC'de resmi controller desteği yoktur (Rekabetçi yapı gereği).
+        "traits": ["gen_action", "gen_3d", "cat_multiplayer", "cat_pvp", "cat_coop", "is_recent", "dev_riot","gen_fps"]
+    },
+    "Fortnite": {
+        "reviews": 12000000, 
+        # Fortnite tam controller desteği sunar.
+        "traits": ["gen_action", "gen_survival", "gen_3d", "cat_controller", "cat_multiplayer", "cat_coop", "cat_pvp", "gen_open_world", "is_recent","gen_sandbox"]
+    },
+    "Genshin Impact": {
+        "reviews": 8000000, 
+        "traits": ["gen_rpg", "gen_open_world", "gen_anime", "gen_adventure", "gen_3d", "cat_controller", "cat_singleplayer", "cat_coop", "is_recent"]
+    },
+    "Minecraft": {
+        "reviews": 20000000,
+        "traits": ["gen_adventure", "gen_simulation", "gen_open_world", "gen_survival", "gen_3d", "cat_controller", "cat_singleplayer", "cat_multiplayer", "cat_coop", "is_mid_era","gen_sandbox","gen_fps"]
+    },
+    "Tom Clancy's Splinter Cell": {
+        "reviews": 20000, 
+        "traits": ["gen_action", "gen_adventure", "gen_3d", "cat_controller", "cat_singleplayer", "is_retro", "dev_ubisoft"]
+    },
+    "Splinter Cell Chaos Theory": {
+        "reviews": 15000, 
+        "traits": ["gen_action", "gen_adventure", "gen_3d", "cat_controller", "cat_singleplayer", "cat_coop", "is_retro", "dev_ubisoft"]
+    },
+    "Marvel's Guardians of the Galaxy": {
+        "reviews": 30000, 
+        "traits": ["gen_action", "gen_adventure", "gen_3d", "cat_controller", "cat_singleplayer", "gen_scifi", "gen_story", "is_recent", "dev_square_enix"]
+    },
+    "LEGO® Batman™: The Videogame": {
+        "reviews": 10000, 
+        "traits": ["gen_action", "gen_adventure", "gen_3d", "cat_controller", "cat_singleplayer", "cat_coop", "cat_split_screen", "is_retro"]
+    },
+    "HITMAN 3": {
+        "reviews": 40000, 
+        "traits": ["gen_action", "gen_adventure", "gen_3d", "cat_controller", "cat_singleplayer", "gen_puzzle", "is_recent"]
+    },
+    "Dying Light 2 Stay Human": {
+        "reviews": 120000, 
+        "traits": ["gen_action", "gen_rpg", "gen_survival", "gen_open_world", "gen_horror", "gen_3d", "cat_controller", "cat_singleplayer", "cat_coop", "is_recent","gen_fps"]
+    },
+    "Crysis Remastered": {
+        "reviews": 15000, 
+        "traits": ["gen_action", "gen_scifi", "gen_3d", "cat_controller", "cat_singleplayer", "is_recent", "dev_ea","gen_fps","gen_story"]
+    },
+    "Crysis 2 Remastered": {
+        "reviews": 12000, 
+        "traits": ["gen_action", "gen_scifi", "gen_3d", "cat_controller", "cat_singleplayer", "is_recent", "dev_ea"]
+    },
+    "Control": {
+        "reviews": 70000, 
+        "traits": ["gen_action", "gen_adventure", "gen_3d", "cat_controller", "cat_singleplayer", "gen_scifi", "gen_story", "is_recent","gen_story"]
+    },
+    "NBA 2K21": {
+        "reviews": 45000, 
+        "traits": ["gen_sports_racing", "gen_simulation", "gen_3d", "cat_controller", "cat_singleplayer", "cat_multiplayer", "cat_pvp", "is_recent"]
+    },
+    "Legends of Runeterra": {
+        "reviews": 50000, 
+        # Kart oyunu olduğu için 2D ağırlıklı kabul edilir.
+        "traits": ["gen_strategy", "gen_2d", "cat_multiplayer", "cat_pvp", "is_recent", "dev_riot"]
+    }
+}
+
+# Döngü ile verileri güncelleme
+for game_name, data in epic_manual_fix.items():
+    # 1. İsmi DataFrame'de bul (Birebir eşleşme veya 'contains' ile)
+    # Not: final_name temizlenmiş veya orijinal olabilir, en güvenlisi doğrudan eşleşme aramaktır.
+    mask = df_final['final_name'] == game_name
+    
+    # Eğer birebir bulamazsa, temizlenmiş isimlerde ara (case insensitive)
+    if not mask.any():
+        mask = df_final['final_name'].str.lower() == game_name.lower()
+    
+    if mask.any():
+        # A. İnceleme Sayısını Güncelle (Ham veriyi düzeltiyoruz)
+        df_final.loc[mask, 'num_reviews_total'] = data['reviews']
+        
+        # B. Özellikleri (Traits) Güncelle
+        for trait in data['traits']:
+            # Eğer sütun varsa 1 yap
+            if trait in df_final.columns:
+                df_final.loc[mask, trait] = 1
+            else:
+                # Sütun yoksa (Örn: dev_riot listemizde yoktu) pas geç
+                pass
+        
+        # C. Yıl Bilgisi (Era) Çakışmasını Önle
+        # Eğer manuel olarak 'is_recent' dediysek, 'is_retro'yu 0 yapmalıyız.
+        if 'is_recent' in data['traits']:
+            df_final.loc[mask, ['is_retro', 'is_mid_era']] = 0
+        elif 'is_retro' in data['traits']:
+            df_final.loc[mask, ['is_recent', 'is_mid_era']] = 0
+            
+        print(f"   ✅ {game_name} güncellendi.")
+    else:
+        print(f"   ⚠️ {game_name} veri setinde bulunamadı! (İsim eşleşmedi)")
+
+
+# --- SON ADIM: NORM_REVIEWS HESABINI GÜNCELLEME ---
+# Manuel olarak review sayılarını değiştirdiğimiz için, normalizasyonu tekrar yapmalıyız.
+# Aksi takdirde LoL'ün inceleme sayısı 15 milyon olur ama norm_reviews eski (düşük) kalır.
+
+print("🔄 Normalizasyon yeniden hesaplanıyor...")
+df_final['reviews_log'] = np.log1p(df_final['num_reviews_total'])
+max_val = df_final['reviews_log'].max()
+min_val = df_final['reviews_log'].min()
+df_final['norm_reviews'] = (df_final['reviews_log'] - min_val) / (max_val - min_val)
+
+print("✅ Tüm manuel düzeltmeler tamamlandı.")
+
+
 # --- ADIM 14: NUM_REVIEWS SÜTUNUNU MODELE HAZIRLAMA ---
 
 # 1. Logaritma Alma (Uçurumu Kapatma)
@@ -345,7 +478,6 @@ df_final.drop('reviews_log',axis=1,inplace=True)
 
 print("✅ İnceleme sayıları 0-1 arasına ölçeklendi.")
 print(df_final[['final_name', 'num_reviews_total', 'norm_reviews']].sort_values('num_reviews_total', ascending=False).head())
-
 
 
 # --- ADIM 15: FİNAL TEMİZLİK VE MANUEL SİLME ---

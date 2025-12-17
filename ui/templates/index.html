@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Recommender AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="hero-container">
+        <h1 class="hero-title">NEXT GAME FINDER</h1>
+        <p style="color: #aaa; margin-bottom: 30px;">Yapay Zeka Destekli Oyun Tavsiye Sistemi</p>
+        
+        <form action="/recommend" method="POST" class="search-box">
+            <input type="text" name="game_name" list="games_list" class="search-input" placeholder="Hangi oyunu sevdin? (Örn: GTA V)" required autocomplete="off">
+            <datalist id="games_list">
+                {% for game in games %}
+                    <option value="{{ game }}">
+                {% endfor %}
+            </datalist>
+            
+            <button type="submit" class="search-btn">Tavsiye Getir 🚀</button>
+        </form>
+
+        {% if error %}
+            <p class="error-msg">{{ error }}</p>
+        {% endif %}
+    </div>
+</body>
+</html>
