@@ -488,13 +488,6 @@ df_final['norm_reviews'] = (df_final['reviews_log'] - min_val) / (max_val - min_
 
 df_final.drop('reviews_log',axis=1,inplace=True)
 
-# 3. Temizlik
-# Artık ham sayıya (ve ara işlem log sütununa) modelde ihtiyacımız yok.
-# SADECE norm_reviews kalacak.
-# NOT: Orijinal 'num_reviews_total' sütununu SİLMİYORUZ, çünkü kullanıcıya
-# "Bu oyunun 500k incelemesi var" diye göstermek için ona ihtiyacımız var.
-# Ama modele sadece 'norm_reviews' girecek.
-
 print("✅ İnceleme sayıları 0-1 arasına ölçeklendi.")
 print(df_final[['final_name', 'num_reviews_total', 'norm_reviews']].sort_values('num_reviews_total', ascending=False).head())
 
@@ -528,7 +521,7 @@ unwanted_names = [
     'OHDcore Mod Kit', 'iHeart: Radio, Music, Podcast', 'Discord', 
     'DCL The Game - Track Editor', 'Brave', 
     'Bus Simulator 21 - Modding Kit', 'Opera GX - The First Browser for Gamers', 
-    'Itch.io',"It Takes Two Friend's Pass"
+    'Itch.io',"It Takes Two Friend's Pass","Angel Legion"
 ]
 # İsim listesinde varsa at
 df_final = df_final[~df_final['final_name'].isin(unwanted_names)]

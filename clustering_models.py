@@ -73,8 +73,8 @@ plt.figure(figsize=(10, 7))
 plt.title("Oyunların Hiyerarşik İlişkisi (Top 50)")
 dend = shc.dendrogram(shc.linkage(X_subset, method='ward'), labels=names_subset, leaf_rotation=90)
 plt.tight_layout()
-plt.savefig("dendrogram_rapor_icin.png") # Resmi kaydeder
-print("   👉 'dendrogram_rapor_icin.png' kaydedildi.")
+plt.savefig("dendrogram.png") # Resmi kaydeder
+print("   👉 'dendrogram.png' kaydedildi.")
 
 
 # --- KAYDETME ---

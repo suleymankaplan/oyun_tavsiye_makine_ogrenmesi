@@ -162,3 +162,30 @@ h1, h2, h3 {
 .epic { background-color: #333; color: #fff; border: 1px solid #555; }
 
 .error-msg { color: #ff4444; margin-top: 15px; }
+
+/* HIT BADGE TASARIMI */
+.hit-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: linear-gradient(45deg, #FFD700, #FFA500); /* Altın rengi */
+    color: #000;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-weight: 800;
+    font-size: 0.9rem;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+    z-index: 10;
+    animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Hafif bir animasyonla gelsin */
+@keyframes popIn {
+    0% { transform: scale(0); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Mobilde taşma yapmasın diye */
+.game-card {
+    position: relative; /* Badge'in buna göre konumlanması için şart */
+}

@@ -26,6 +26,11 @@
         <div class="grid-container">
             {% for game in recommendations %}
             <div class="game-card">
+                {% if game.is_hit == 1 %}
+                    <div class="hit-badge">
+                        ★ HIT
+                    </div>
+                {% endif %}
                 <img src="{{ game.image }}" alt="{{ game.name }}" class="card-img">
                 <div class="card-content">
                     <div class="card-title">{{ game.name }}</div>
