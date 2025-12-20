@@ -62,7 +62,6 @@ df_steam = df_steam.drop_duplicates(subset=['temp_clean'], keep='first')
 df_steam = df_steam.drop(columns=['temp_clean'])
 
 # E. Gereksizleri Sil 
-# NOT: 'pct_pos_total' (inceleme puanı) silinmemeli, analiz için çok önemli!
 cols_to_drop_steam = [
     "reviews", "dlc_count", "release_date",
     "detailed_description", "about_the_game", "short_description",
@@ -115,12 +114,11 @@ df_final['final_price'] = df_final['price'].combine_first(df_final['price_epic']
 df_final['genres'] = df_final['genres'].combine_first(df_final['genres_epic'])
 df_final['release_year'] = df_final['release_year'].combine_first(df_final['release_year_epic']).fillna(2020)
 
-# Puan Doldurma (Kritik): Epic oyunlarında puan yoksa ortalama (70) veya steam ortalamasını verelim
 if 'pct_pos_total' in df_final.columns:
     avg_score = df_final['pct_pos_total'].mean()
     df_final['pct_pos_total'] = df_final['pct_pos_total'].fillna(avg_score)
 else:
-    df_final['pct_pos_total'] = 70 # Sütun yoksa varsayılan oluştur
+    df_final['pct_pos_total'] = 70
 
 df_final['windows'] = df_final['windows'].combine_first(df_final['windows_epic']).fillna(1)
 df_final['mac'] = df_final['mac'].combine_first(df_final['mac_epic']).fillna(0)
@@ -131,7 +129,6 @@ df_final['on_epic'] = df_final['name_epic'].notna().astype(int)
 
 
 # --- ADIM 5: VR TEMİZLİĞİ ---
-# Categories işlemi en son yapılmalı, burada sadece filtreliyoruz
 df_final['categories'] = df_final['categories'].fillna('').astype(str)
 vr_keywords = 'VR Only'
 df_final = df_final[~df_final['categories'].str.contains(vr_keywords, case=False, na=False)]
@@ -212,9 +209,6 @@ df_final = df_final.drop(columns=['supported_languages'])
 
 
 # --- ADIM 10: KATEGORİ AYRIŞTIRMA (SON AŞAMA) ---
-
-# DÜZELTME BURADA: Manuel eklenen oyunlardan gelen NaN (float) değerleri temizliyoruz.
-# Bu satır olmadan kod LoL veya Valorant satırına gelince hata verir.
 df_final['categories'] = df_final['categories'].fillna('').astype(str)
 
 df_final['cat_singleplayer'] = df_final['categories'].apply(lambda x: 1 if 'Single-player' in x else 0)
@@ -239,29 +233,22 @@ df_final['is_mid_era'] = df_final['release_year'].apply(lambda x: 1 if 2010 < x 
 # 3. is_recent: 2020 ve sonrası
 df_final['is_recent'] = df_final['release_year'].apply(lambda x: 1 if x >= 2020 else 0)
 
-# ÖNEMLİ: Orijinal 'release_year' sütununu SİLMİYORUZ!
-# Çünkü kullanıcıya sonucu gösterirken "Bu oyun 2015 yapımı" diye göstermemiz gerekecek.
-# Ama modeli eğitirken (scaling aşamasında) 'release_year'ı kullanmayıp bu 3 yeni sütunu kullanacağız.
-
 
 # --- ADIM 12: ÖNEMLİ GELİŞTİRİCİLERİ MODEL İÇİN İŞARETLEME ---
 
-# Geliştirici ve Yayıncı sütunlarını birleştirip arama yapacağız
-# (Bazen Rockstar hem yapımcı hem yayıncıdır, ikisine de bakmak lazım)
 df_final['dev_pub_combined'] = (df_final['developers'].fillna('') + " " + df_final['publishers'].fillna('')).astype(str).str.lower()
 
-# Oyun dünyasında tarzı en belirgin olan devleri seçelim:
 target_devs = {
     'dev_rockstar': ['rockstar games', 'rockstar north'],
     'dev_ubisoft': ['ubisoft', 'ubisoft montreal'],
-    'dev_valve': ['valve'], # Half-Life, Portal, L4D hissi başkadır
-    'dev_bethesda': ['bethesda', 'bethesda softworks'], # Skyrim, Fallout tarzı
-    'dev_ea': ['electronic arts', 'ea sports', 'dice', 'bioware'], # FIFA, BF, Mass Effect
-    'dev_square_enix': ['square enix'], # JRPG ve Final Fantasy tarzı
-    'dev_capcom': ['capcom'], # Resident Evil, DMC, Street Fighter
-    'dev_fromsoftware': ['fromsoftware'], # Souls oyunları (Çok kritik)
-    'dev_cdprojekt': ['cd projekt red'], # Witcher, Cyberpunk
-    'dev_sony': ['playstation', 'sony interactive', 'naughty dog', 'santa monica'] # God of War, Uncharted kalitesi
+    'dev_valve': ['valve'], 
+    'dev_bethesda': ['bethesda', 'bethesda softworks'],
+    'dev_ea': ['electronic arts', 'ea sports', 'dice', 'bioware'],
+    'dev_square_enix': ['square enix'],
+    'dev_capcom': ['capcom'],
+    'dev_fromsoftware': ['fromsoftware'],
+    'dev_cdprojekt': ['cd projekt red'],
+    'dev_sony': ['playstation', 'sony interactive', 'naughty dog', 'santa monica']
 }
 
 print("Önemli Geliştiriciler İşaretleniyor...")
@@ -269,7 +256,6 @@ print("Önemli Geliştiriciler İşaretleniyor...")
 for col_name, keywords in target_devs.items():
     df_final[col_name] = df_final['dev_pub_combined'].apply(lambda x: 1 if any(k in x for k in keywords) else 0)
 
-# Geçici sütunu siliyoruz
 df_final = df_final.drop(columns=['dev_pub_combined'])
 
 # Kontrol
@@ -316,8 +302,6 @@ print(f"Temizlik Sonrası Toplam Oyun: {len(df_final)}")
 
 # --- ADIM: EPIC GAMES ÖZEL OYUNLARINI MANUEL DOLDURMA VE RESİM EKLEME ---
 print("🛠️ Epic Games Özel Oyunları Manuel Olarak Dolduruluyor...")
-
-# Not: 'image' alanlarını daha kalıcı linklerle güncelledim.
 epic_manual_fix = {
     "League of Legends": {
         "reviews": 15000000, 
@@ -445,7 +429,6 @@ for game_name, data in epic_manual_fix.items():
 
 
 # --- TÜR DÜZELTMELERİ (Rainbow Six & GTA) ---
-# Burada Epic/Steam ayrımı yapmadan tüm listede arayıp düzeltiyoruz.
 
 print("\n🛠️ Tür Hataları Gideriliyor...")
 
@@ -473,13 +456,10 @@ if mask_remove_sport.any():
 
 print("\n🔄 Normalizasyon yeniden hesaplanıyor...")
 
-# 1. Logaritma Alma (Uçurumu Kapatma)
-# np.log1p fonksiyonu log(1 + x) işlemini yapar. 
-# (+1 eklememizin sebebi, 0 incelemesi olan oyunlarda log(0) hatası almamaktır)
+# 1. Logaritma Alma
 df_final['reviews_log'] = np.log1p(df_final['num_reviews_total'])
 
 # 2. 0-1 Arasına Sıkıştırma (Normalization)
-# Modeldeki diğer tüm veriler 0 veya 1 olduğu için, bu veri de maksimum 1 olmalı.
 max_val = df_final['reviews_log'].max()
 min_val = df_final['reviews_log'].min()
 
@@ -503,11 +483,8 @@ df_final = df_final.drop(columns=[c for c in cols_to_clean if c in df_final.colu
 # Eksik sayısal veriler (Model bozulmasın diye 0 ile doldur)
 df_final['num_reviews_total'] = df_final['num_reviews_total'].fillna(0)
 df_final['metacritic_score'] = df_final['metacritic_score'].fillna(0)
-# pct_pos_total yukarda dolmuştu ama yine de kontrol
 if 'pct_pos_total' in df_final.columns:
     df_final['pct_pos_total'] = df_final['pct_pos_total'].fillna(50)
-
-# Platformları int yap
 for col in ['windows', 'mac', 'linux']:
     df_final[col] = df_final[col].fillna(0).astype(int)
 
@@ -515,15 +492,12 @@ for col in ['windows', 'mac', 'linux']:
 df_final = df_final.drop_duplicates(subset=['final_name'])
 
 # Manuel İstenmeyenler Listesi
-# ÖNEMLİ: Valorant burada silinirse manuel eklediğin de gider. 
-# Eğer Epic'ten gelen hatalı "VALORANT" ise, büyük küçük harf duyarlı olduğu için sorun olmaz.
 unwanted_names = [
     'OHDcore Mod Kit', 'iHeart: Radio, Music, Podcast', 'Discord', 
     'DCL The Game - Track Editor', 'Brave', 
     'Bus Simulator 21 - Modding Kit', 'Opera GX - The First Browser for Gamers', 
     'Itch.io',"It Takes Two Friend's Pass","Angel Legion"
 ]
-# İsim listesinde varsa at
 df_final = df_final[~df_final['final_name'].isin(unwanted_names)]
 
 print(f"İşlem Tamam! Final Veri Sayısı: {len(df_final)}")

@@ -35,11 +35,7 @@ df['cluster_label'] = kmeans.labels_
 
 
 # --- TEKNİK 2: K-NEAREST NEIGHBORS (Hassas Tavsiye) ---
-# K-Means grubu bulur, KNN ise o grubun içindeki veya dışındaki "En yakın" komşuyu bulur.
-# Bu model, tavsiye motorunun "Similarity" kısmını yapacak.
 print("\n🚀 TEKNİK 2: k-NN (Nearest Neighbors) eğitiliyor...")
-# Metric='cosine' kullanıyoruz çünkü oyunlar arasındaki açısal benzerlik (tür uyumu) 
-# uzaklıktan daha önemlidir.
 knn_model = NearestNeighbors(n_neighbors=10, metric='cosine', algorithm='brute')
 knn_model.fit(X)
 
@@ -53,7 +49,6 @@ df['pca_y'] = pca_result[:, 1]
 
 
 # --- TEKNİK 4: VALIDASYON (Silhouette Score) ---
-# Bu işlem biraz uzun sürebilir, tüm veri yerine %20'lik örneklemle test edelim.
 print("\n📊 ANALİZ: Silhouette Skoru hesaplanıyor (Kümeleme Başarısı)...")
 sample_X = X.sample(n=min(2000, len(X)), random_state=42)
 sample_labels = kmeans.predict(sample_X)
@@ -63,7 +58,6 @@ print("   (Not: 1'e ne kadar yakınsa kümeler o kadar net ayrışmış demektir
 
 
 # --- TEKNİK 5: HİYERARŞİK KÜMELEME (Dendrogram - Rapor İçin) ---
-# Tüm veriyle yaparsak RAM yetmeyebilir, sadece en popüler 50 oyunla görselleştirelim.
 print("\n📊 ANALİZ: Hiyerarşik Kümeleme Dendrogramı oluşturuluyor (Rapor Görseli)...")
 top_50_indices = df.nlargest(50, 'num_reviews_total').index
 X_subset = X.loc[top_50_indices]
@@ -73,7 +67,7 @@ plt.figure(figsize=(10, 7))
 plt.title("Oyunların Hiyerarşik İlişkisi (Top 50)")
 dend = shc.dendrogram(shc.linkage(X_subset, method='ward'), labels=names_subset, leaf_rotation=90)
 plt.tight_layout()
-plt.savefig("dendrogram.png") # Resmi kaydeder
+plt.savefig("dendrogram.png")
 print("   👉 'dendrogram.png' kaydedildi.")
 
 

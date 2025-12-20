@@ -12,7 +12,7 @@ ROOT_DIR = os.path.dirname(BASE_DIR)
 
 DATA_PATH = os.path.join(ROOT_DIR, 'oyun_projesi_clustered.csv')
 KNN_MODEL_PATH = os.path.join(ROOT_DIR, 'knn_model.pkl')
-HIT_MODEL_PATH = os.path.join(ROOT_DIR, 'hit_model.pkl') # YENİ
+HIT_MODEL_PATH = os.path.join(ROOT_DIR, 'hit_model.pkl')
 
 # --- VERİ VE MODELLERİ YÜKLEME ---
 try:
@@ -36,8 +36,6 @@ if 'lang_turkish' in df.columns: feature_cols.append('lang_turkish')
 if 'norm_reviews' in df.columns: feature_cols.append('norm_reviews')
 
 # --- YENİ: ÖZELLİK SEÇİMİ (HIT MODELİ İÇİN) ---
-# Hit modelini eğitirken review sayılarını çıkarmıştık, burada da çıkarmalıyız.
-# Yoksa "Shape Mismatch" hatası alırız.
 hit_features = [col for col in df.columns 
                 if col not in ['final_name', 'header_image', 'cluster_label', 'pca_x', 'pca_y', 
                                'num_reviews_total', 'norm_reviews', 'is_hit'] 
@@ -79,9 +77,8 @@ def recommend():
         rec_game = df.iloc[i]
         
         # --- YENİ: HIT TAHMİNİ ---
-        # Oyunun özelliklerini hit modeline uygun hale getir
         hit_vector = rec_game[hit_features].values.reshape(1, -1)
-        is_hit_prediction = hit_model.predict(hit_vector)[0] # 1 veya 0 döner
+        is_hit_prediction = hit_model.predict(hit_vector)[0]
         
         platforms = []
         if rec_game['windows'] == 1: platforms.append('Windows')
@@ -100,7 +97,7 @@ def recommend():
             'stores': stores,
             'reviews': int(rec_game['num_reviews_total']),
             'release': int(rec_game['release_year']),
-            'is_hit': int(is_hit_prediction) # HTML'e gönderiyoruz
+            'is_hit': int(is_hit_prediction)
         }
         recommendations.append(rec_data)
 

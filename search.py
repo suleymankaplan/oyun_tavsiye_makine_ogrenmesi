@@ -19,14 +19,12 @@ def main():
         if game_name.lower() == 'q':
             break
 
-        # İsmi küçük harfe çevirip arayalım (Case insensitive)
         row = df[df['final_name'].str.lower() == game_name.lower()]
 
         if row.empty:
             print("❌ Oyun bulunamadı. Tam ismini yazdığınızdan emin olun.")
             continue
         
-        # İlk eşleşen satırı al
         data = row.iloc[0]
         
         print(f"\n🎯 OYUN: {data['final_name']}")
@@ -36,10 +34,8 @@ def main():
         print("-" * 40)
         print("AKTİF ÖZELLİKLER (1 OLANLAR):")
         
-        # Tüm sütunları gez, 1 olan feature'ları yazdır
         found_features = False
         for col in df.columns:
-            # Sadece bizim teknik sütunlara bakıyoruz
             if col.startswith(('gen_', 'cat_', 'is_', 'dev_', 'lang_')):
                 if data[col] == 1:
                     print(f"  ✅ {col}")

@@ -1,17 +1,18 @@
-/* GENEL AYARLAR */
 body {
-    background-color: #121212;
-    color: #ffffff;
+    background-color: #f8f9fa;
+    color: #333333;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin: 0;
     padding: 0;
-    background-image: radial-gradient(circle at top right, #2a1b3d 0%, #121212 60%);
+    /* Hafif bir degrade arka plan */
+    background-image: radial-gradient(circle at top right, #e6e9f0 0%, #f8f9fa 70%);
     min-height: 100vh;
 }
 
 h1, h2, h3 {
     margin: 0;
     font-weight: 700;
+    color: #222;
 }
 
 /* ANA SAYFA (SEARCH) */
@@ -26,7 +27,8 @@ h1, h2, h3 {
 
 .hero-title {
     font-size: 3.5rem;
-    background: linear-gradient(90deg, #ff00cc, #333399);
+    /* Başlıkta degradeyi koruyoruz ama daha okunaklı */
+    background: linear-gradient(90deg, #d900ad, #2a2a72);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     margin-bottom: 20px;
@@ -43,16 +45,17 @@ h1, h2, h3 {
     padding: 15px 20px;
     font-size: 1.2rem;
     border-radius: 30px;
-    border: 2px solid #333;
-    background-color: #1e1e1e;
-    color: white;
+    border: 2px solid #ddd;
+    background-color: #ffffff;
+    color: #333;
     outline: none;
     transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
 }
 
 .search-input:focus {
     border-color: #ff00cc;
-    box-shadow: 0 0 15px rgba(255, 0, 204, 0.4);
+    box-shadow: 0 0 15px rgba(255, 0, 204, 0.2);
 }
 
 .search-btn {
@@ -65,6 +68,7 @@ h1, h2, h3 {
     color: white;
     cursor: pointer;
     transition: transform 0.2s;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
 }
 
 .search-btn:hover {
@@ -81,17 +85,19 @@ h1, h2, h3 {
 .selected-game-header {
     display: flex;
     align-items: center;
-    background-color: #1e1e1e;
+    background-color: #ffffff;
     padding: 20px;
     border-radius: 15px;
     margin-bottom: 40px;
     border-left: 5px solid #ff00cc;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
 }
 
 .selected-game-img {
     width: 150px;
     border-radius: 10px;
     margin-right: 20px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
 
 .grid-container {
@@ -102,16 +108,18 @@ h1, h2, h3 {
 
 /* OYUN KARTLARI */
 .game-card {
-    background-color: #1e1e1e;
+    background-color: #ffffff;
     border-radius: 15px;
     overflow: hidden;
     transition: transform 0.3s, box-shadow 0.3s;
     position: relative;
+    border: 1px solid #eee;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
 }
 
 .game-card:hover {
     transform: translateY(-10px);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.1);
 }
 
 .card-img {
@@ -127,16 +135,18 @@ h1, h2, h3 {
 .card-title {
     font-size: 1.3rem;
     margin-bottom: 10px;
-    color: #eee;
+    color: #222;
+    font-weight: 700;
 }
 
 .card-tags span {
-    background-color: #333;
+    background-color: #f1f1f1;
     padding: 4px 8px;
     border-radius: 5px;
     font-size: 0.8rem;
     margin-right: 5px;
-    color: #aaa;
+    color: #555;
+    border: 1px solid #e0e0e0;
 }
 
 .card-footer {
@@ -145,11 +155,11 @@ h1, h2, h3 {
     align-items: center;
     margin-top: 15px;
     padding-top: 10px;
-    border-top: 1px solid #333;
+    border-top: 1px solid #eee;
 }
 
 .price {
-    color: #00ff88;
+    color: #00994d;
     font-weight: bold;
 }
 
@@ -158,34 +168,35 @@ h1, h2, h3 {
     padding: 2px 6px;
     border-radius: 4px;
 }
-.steam { background-color: #1b2838; color: #fff; }
-.epic { background-color: #333; color: #fff; border: 1px solid #555; }
+.steam { background-color: #171a21; color: #fff; }
+.epic { background-color: #333; color: #fff; }
 
-.error-msg { color: #ff4444; margin-top: 15px; }
+.error-msg { color: #d32f2f; margin-top: 15px; }
 
 /* HIT BADGE TASARIMI */
 .hit-badge {
     position: absolute;
     top: 10px;
     right: 10px;
-    background: linear-gradient(45deg, #FFD700, #FFA500); /* Altın rengi */
-    color: #000;
+    background: linear-gradient(45deg, #FFD700, #ff8c00);
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
     padding: 5px 12px;
     border-radius: 20px;
     font-weight: 800;
     font-size: 0.9rem;
-    box-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+    box-shadow: 0 4px 10px rgba(255, 165, 0, 0.4);
     z-index: 10;
     animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-/* Hafif bir animasyonla gelsin */
+/* animasyon */
 @keyframes popIn {
     0% { transform: scale(0); opacity: 0; }
     100% { transform: scale(1); opacity: 1; }
 }
 
-/* Mobilde taşma yapmasın diye */
+/* Badge hizalama */
 .game-card {
-    position: relative; /* Badge'in buna göre konumlanması için şart */
+    position: relative; 
 }
