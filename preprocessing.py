@@ -280,10 +280,9 @@ print("\nRockstar Oyunları:")
 print(df_final[df_final['dev_rockstar'] == 1]['final_name'].head())
 
 
-# # --- ADIM 13: EPIC GAMES TEMİZLİĞİ (ÇÖP VERİLERİ SİLME) ---
+# --- ADIM 13: EPIC GAMES TEMİZLİĞİ (ÇÖP VERİLERİ SİLME) ---
 
 # 1. KORUNACAK VIP OYUNLAR (Whitelist)
-# Buraya senin manuel eklediklerini ve silinmesini istemediğin büyük oyunları yaz.
 vip_epic_games = [
     'Crysis Remastered',
     'Crysis 2 Remastered',
@@ -299,139 +298,145 @@ vip_epic_games = [
     "Tom Clancy's Splinter Cell",
     'Minecraft', 
     'Fortnite', 
-    'Rocket League', 
+    'Rocket League®', 
     'Genshin Impact', 
-    'Alan Wake 2',
     'Fall Guys',
     'Control'
 ]
 
 # 2. SİLME MANTIĞI
-# Koşul: (Sadece Epic'te olsun) VE (Steam'de olmasın) VE (İsmi VIP listede OLMASIN)
 mask_trash_epic = (df_final['on_epic'] == 1) & \
                   (df_final['on_steam'] == 0) & \
                   (~df_final['final_name'].isin(vip_epic_games))
 
-# Silmeden önce kaç tane gidecek görelim
 print(f"Silinecek Niteliksiz Epic Oyunu Sayısı: {mask_trash_epic.sum()}")
-
-# Temizlik
 df_final = df_final[~mask_trash_epic]
-
 print(f"Temizlik Sonrası Toplam Oyun: {len(df_final)}")
 
-# KONTROL: VIP oyunlar duruyor mu?
-print("\nVIP Oyun Kontrolü:")
-print(df_final[df_final['final_name'].isin(vip_epic_games)]['final_name'].unique())
 
-
-# --- ADIM: EPIC GAMES ÖZEL OYUNLARINI MANUEL DOLDURMA ---
-# Bu blok, sadece Epic'te olan ama verileri eksik gelen dev oyunları tamir eder.
-
+# --- ADIM: EPIC GAMES ÖZEL OYUNLARINI MANUEL DOLDURMA VE RESİM EKLEME ---
 print("🛠️ Epic Games Özel Oyunları Manuel Olarak Dolduruluyor...")
 
-# Oyunların özellik haritası
-# 'reviews': Tahmini inceleme sayısı (Steam standartlarına göre popülerlik)
-# 'traits': İşaretlenecek sütunlar (1 yapılacaklar)
+# Not: 'image' alanlarını daha kalıcı linklerle güncelledim.
 epic_manual_fix = {
     "League of Legends": {
         "reviews": 15000000, 
-        # LoL 3D'dir (İzometrik), Klavye/Mouse oynanır (Controller yok)
-        "traits": ["gen_rpg", "gen_strategy", "gen_3d", "cat_multiplayer", "cat_mmo", "cat_coop", "cat_pvp", "is_recent", "dev_riot"]
+        "traits": ["gen_rpg", "gen_strategy", "gen_3d", "cat_multiplayer", "cat_mmo", "cat_coop", "cat_pvp", "is_recent", "dev_riot"],
+        "image": "https://upload.wikimedia.org/wikipedia/commons/d/d8/League_of_Legends_2019_vector.svg" # Logo/Art
     },
     "VALORANT": {
         "reviews": 10000000, 
-        # Valorant 3D FPS'tir. PC'de resmi controller desteği yoktur (Rekabetçi yapı gereği).
-        "traits": ["gen_action", "gen_3d", "cat_multiplayer", "cat_pvp", "cat_coop", "is_recent", "dev_riot","gen_fps"]
+        "traits": ["gen_action", "gen_3d", "cat_multiplayer", "cat_pvp", "cat_coop", "is_recent", "dev_riot","gen_fps"],
+        "image": "https://upload.wikimedia.org/wikipedia/commons/f/fc/Valorant_logo_-_pink_color_version.svg"
     },
     "Fortnite": {
         "reviews": 12000000, 
-        # Fortnite tam controller desteği sunar.
-        "traits": ["gen_action", "gen_survival", "gen_3d", "cat_controller", "cat_multiplayer", "cat_coop", "cat_pvp", "gen_open_world", "is_recent","gen_sandbox"]
+        "traits": ["gen_action", "gen_survival", "gen_3d", "cat_controller", "cat_multiplayer", "cat_coop", "cat_pvp", "gen_open_world", "is_recent","gen_sandbox"],
+        "image": "https://cdn2.unrealengine.com/fneco-2025-keyart-thumb-1920x1080-de84aedabf4d.jpg"
     },
     "Genshin Impact": {
         "reviews": 8000000, 
-        "traits": ["gen_rpg", "gen_open_world", "gen_anime", "gen_adventure", "gen_3d", "cat_controller", "cat_singleplayer", "cat_coop", "is_recent"]
+        "traits": ["gen_rpg", "gen_open_world", "gen_anime", "gen_adventure", "gen_3d", "cat_controller", "cat_singleplayer", "cat_coop", "is_recent"],
+        "image": "https://image.api.playstation.com/vulcan/ap/rnd/202508/2602/cc615ad198b2727cea3aa9f63c68577d5aa322f4ec974905.jpg"
     },
     "Minecraft": {
         "reviews": 20000000,
-        "traits": ["gen_adventure", "gen_simulation", "gen_open_world", "gen_survival", "gen_3d", "cat_controller", "cat_singleplayer", "cat_multiplayer", "cat_coop", "is_mid_era","gen_sandbox","gen_fps"]
+        "traits": ["gen_adventure", "gen_simulation", "gen_open_world", "gen_survival", "gen_3d", "cat_controller", "cat_singleplayer", "cat_multiplayer", "cat_coop", "is_mid_era","gen_sandbox","gen_fps"],
+        "image": "https://assets-prd.ignimgs.com/2021/12/14/minecraft-1639513933156.jpg"
     },
     "Tom Clancy's Splinter Cell": {
         "reviews": 20000, 
-        "traits": ["gen_action", "gen_adventure", "gen_3d", "cat_controller", "cat_singleplayer", "is_retro", "dev_ubisoft"]
+        "traits": ["gen_action", "gen_adventure", "gen_3d", "cat_controller", "cat_singleplayer", "is_retro", "dev_ubisoft"],
+        "image": "https://cdn1.epicgames.com/54090fbc182e44d79b2872f24994c190/offer/SCEL_Store_Landscape_2560x1440-2560x1440-0966b116c19dc7029f8e19b918af7309.jpg"
     },
     "Splinter Cell Chaos Theory": {
         "reviews": 15000, 
-        "traits": ["gen_action", "gen_adventure", "gen_3d", "cat_controller", "cat_singleplayer", "cat_coop", "is_retro", "dev_ubisoft"]
+        "traits": ["gen_action", "gen_adventure", "gen_3d", "cat_controller", "cat_singleplayer", "cat_coop", "is_retro", "dev_ubisoft"],
+        "image": "https://store-images.s-microsoft.com/image/apps.21616.68747576901602782.585f0e62-5630-484c-8ce3-2c4ced4d9cef.e69c9a76-c585-4847-8663-01b1281f0ac0?q=90&w=480&h=270"
     },
     "Marvel's Guardians of the Galaxy": {
         "reviews": 30000, 
-        "traits": ["gen_action", "gen_adventure", "gen_3d", "cat_controller", "cat_singleplayer", "gen_scifi", "gen_story", "is_recent", "dev_square_enix"]
+        "traits": ["gen_action", "gen_adventure", "gen_3d", "cat_controller", "cat_singleplayer", "gen_scifi", "gen_story", "is_recent", "dev_square_enix"],
+        "image": "https://image.api.playstation.com/vulcan/ap/rnd/202106/0215/Pw9cWnyqkix3EoCOGqrN1cgN.png"
     },
     "LEGO® Batman™: The Videogame": {
         "reviews": 10000, 
-        "traits": ["gen_action", "gen_adventure", "gen_3d", "cat_controller", "cat_singleplayer", "cat_coop", "cat_split_screen", "is_retro"]
+        "traits": ["gen_action", "gen_adventure", "gen_3d", "cat_controller", "cat_singleplayer", "cat_coop", "cat_split_screen", "is_retro"],
+        "image": "https://upload.wikimedia.org/wikipedia/en/e/e3/Lego_batman_cover.jpg"
     },
     "HITMAN 3": {
         "reviews": 40000, 
-        "traits": ["gen_action", "gen_adventure", "gen_3d", "cat_controller", "cat_singleplayer", "gen_puzzle", "is_recent"]
+        "traits": ["gen_action", "gen_adventure", "gen_3d", "cat_controller", "cat_singleplayer", "gen_puzzle", "is_recent"],
+        "image":"https://www.google.com/url?sa=t&source=web&rct=j&url=https%3A%2F%2Fwww.keycense.com%2Fhitman-3%3Fsrsltid%3DAfmBOoq6ZSSXb2Ap1FIx-XUcBGNcw9ckH75IWbT38Xrfa7K2QctIKzGo&ved=0CBUQjRxqFwoTCKi5t4LRy5EDFQAAAAAdAAAAABAj&opi=89978449"
     },
     "Dying Light 2 Stay Human": {
         "reviews": 120000, 
-        "traits": ["gen_action", "gen_rpg", "gen_survival", "gen_open_world", "gen_horror", "gen_3d", "cat_controller", "cat_singleplayer", "cat_coop", "is_recent","gen_fps"]
+        "traits": ["gen_action", "gen_rpg", "gen_survival", "gen_open_world", "gen_horror", "gen_3d", "cat_controller", "cat_singleplayer", "cat_coop", "is_recent","gen_fps"],
+        "image": "https://upload.wikimedia.org/wikipedia/en/6/6d/Dying_Light_2_cover_art.jpg"
     },
     "Crysis Remastered": {
         "reviews": 15000, 
-        "traits": ["gen_action", "gen_scifi", "gen_3d", "cat_controller", "cat_singleplayer", "is_recent", "dev_ea","gen_fps","gen_story"]
+        "traits": ["gen_action", "gen_scifi", "gen_3d", "cat_controller", "cat_singleplayer", "is_recent", "dev_ea","gen_fps","gen_story"],
+        "image": "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1715130/capsule_616x353.jpg?t=1709651863"
     },
     "Crysis 2 Remastered": {
         "reviews": 12000, 
-        "traits": ["gen_action", "gen_scifi", "gen_3d", "cat_controller", "cat_singleplayer", "is_recent", "dev_ea"]
+        "traits": ["gen_action", "gen_scifi", "gen_3d", "cat_controller", "cat_singleplayer", "is_recent", "dev_ea"],
+        "image": "https://cdn1.epicgames.com/salesEvent/salesEvent/EGS_Crysis2Remastered_Crytek_S1_2560x1440-fd507ed73e95770a3fe990ee78e3012f"
     },
     "Control": {
         "reviews": 70000, 
-        "traits": ["gen_action", "gen_adventure", "gen_3d", "cat_controller", "cat_singleplayer", "gen_scifi", "gen_story", "is_recent","gen_story"]
+        "traits": ["gen_action", "gen_adventure", "gen_3d", "cat_controller", "cat_singleplayer", "gen_scifi", "gen_story", "is_recent","gen_story"],
+        "image": "https://upload.wikimedia.org/wikipedia/en/e/e5/Control_game_cover_art.jpg"
     },
     "NBA 2K21": {
         "reviews": 45000, 
-        "traits": ["gen_sports_racing", "gen_simulation", "gen_3d", "cat_controller", "cat_singleplayer", "cat_multiplayer", "cat_pvp", "is_recent"]
+        "traits": ["gen_sports_racing", "gen_simulation", "gen_3d", "cat_controller", "cat_singleplayer", "cat_multiplayer", "cat_pvp", "is_recent"],
+        "image": "https://image.api.playstation.com/vulcan/ap/rnd/202011/0516/uymryFlvJymtWtSm8jnbuMxf.png"
     },
     "Legends of Runeterra": {
         "reviews": 50000, 
-        # Kart oyunu olduğu için 2D ağırlıklı kabul edilir.
-        "traits": ["gen_strategy", "gen_2d", "cat_multiplayer", "cat_pvp", "is_recent", "dev_riot"]
+        "traits": ["gen_strategy", "gen_2d", "cat_multiplayer", "cat_pvp", "is_recent", "dev_riot"],
+        "image": "https://cdn1.epicgames.com/offer/4fb89e9f47fe48258314c366649c398e/EGS_LegendsofRuneterra_RiotGames_S1_2560x1440-53b4135a798b686f67f2a95de625858f"
+    },
+    "Rocket League®": {
+        "reviews": 500000,
+        "traits": ["gen_sports_racing", "gen_action", "cat_multiplayer", "cat_pvp", "cat_coop", "cat_controller", "is_recent"],
+        "image": "https://upload.wikimedia.org/wikipedia/commons/e/e0/Rocket_League_coverart.jpg"
+    },
+    "Fall Guys": {
+        "reviews": 400000,
+        "traits": ["gen_action", "gen_arcade", "cat_multiplayer", "cat_pvp", "cat_controller", "is_recent"],
+        "image": "https://cdn1.epicgames.com/offer/50118b7f954e450f8823df1614b24e80/FGSS04_KeyArt_OfferImagePortrait_1200x1600_1200x1600-4bd46574e78464352e1f2c55714701f7"
     }
 }
 
-# Döngü ile verileri güncelleme
+# Döngü ile verileri güncelleme (Sadece listedekileri yapar)
 for game_name, data in epic_manual_fix.items():
-    # 1. İsmi DataFrame'de bul (Birebir eşleşme veya 'contains' ile)
-    # Not: final_name temizlenmiş veya orijinal olabilir, en güvenlisi doğrudan eşleşme aramaktır.
+    # 1. İsmi DataFrame'de bul (Tam eşleşme öncelikli)
     mask = df_final['final_name'] == game_name
     
-    # Eğer birebir bulamazsa, temizlenmiş isimlerde ara (case insensitive)
+    # Eğer birebir bulamazsa, küçük harfle ara
     if not mask.any():
         mask = df_final['final_name'].str.lower() == game_name.lower()
     
     if mask.any():
-        # A. İnceleme Sayısını Güncelle (Ham veriyi düzeltiyoruz)
-        df_final.loc[mask, 'num_reviews_total'] = data['reviews']
+        # A. İnceleme Sayısı
+        df_final.loc[mask, 'num_reviews_total'] = data.get('reviews', 0)
         
-        # B. Özellikleri (Traits) Güncelle
-        for trait in data['traits']:
-            # Eğer sütun varsa 1 yap
+        # B. Özellikler
+        for trait in data.get('traits', []):
             if trait in df_final.columns:
                 df_final.loc[mask, trait] = 1
-            else:
-                # Sütun yoksa (Örn: dev_riot listemizde yoktu) pas geç
-                pass
         
-        # C. Yıl Bilgisi (Era) Çakışmasını Önle
-        # Eğer manuel olarak 'is_recent' dediysek, 'is_retro'yu 0 yapmalıyız.
-        if 'is_recent' in data['traits']:
+        # C. Resim (Varsa ekle)
+        if 'image' in data:
+            df_final.loc[mask, 'header_image'] = data['image']
+        
+        # D. Yıl Bilgisi (Era) Çakışmasını Önle
+        if 'is_recent' in data.get('traits', []):
             df_final.loc[mask, ['is_retro', 'is_mid_era']] = 0
-        elif 'is_retro' in data['traits']:
+        elif 'is_retro' in data.get('traits', []):
             df_final.loc[mask, ['is_recent', 'is_mid_era']] = 0
             
         print(f"   ✅ {game_name} güncellendi.")
@@ -439,20 +444,34 @@ for game_name, data in epic_manual_fix.items():
         print(f"   ⚠️ {game_name} veri setinde bulunamadı! (İsim eşleşmedi)")
 
 
-# --- SON ADIM: NORM_REVIEWS HESABINI GÜNCELLEME ---
-# Manuel olarak review sayılarını değiştirdiğimiz için, normalizasyonu tekrar yapmalıyız.
-# Aksi takdirde LoL'ün inceleme sayısı 15 milyon olur ama norm_reviews eski (düşük) kalır.
+# --- TÜR DÜZELTMELERİ (Rainbow Six & GTA) ---
+# Burada Epic/Steam ayrımı yapmadan tüm listede arayıp düzeltiyoruz.
 
-print("🔄 Normalizasyon yeniden hesaplanıyor...")
-df_final['reviews_log'] = np.log1p(df_final['num_reviews_total'])
-max_val = df_final['reviews_log'].max()
-min_val = df_final['reviews_log'].min()
-df_final['norm_reviews'] = (df_final['reviews_log'] - min_val) / (max_val - min_val)
+print("\n🛠️ Tür Hataları Gideriliyor...")
 
-print("✅ Tüm manuel düzeltmeler tamamlandı.")
+# 1. Rainbow Six Siege - Simulation Kaldırma
+mask_r6 = df_final['final_name'].str.contains("Rainbow Six", case=False, na=False) & \
+          df_final['final_name'].str.contains("Siege", case=False, na=False)
+if mask_r6.any():
+    df_final.loc[mask_r6, 'gen_simulation'] = 0
+    print("   ✅ Rainbow Six Siege'den 'Simulation' etiketi kaldırıldı.")
 
+# 2. GTA Enhanced & Legacy & Counter-Strike 2 - Sports/Racing Kaldırma
+mask_gta = df_final['final_name'].str.contains("Grand Theft Auto", case=False, na=False) & \
+           df_final['final_name'].str.contains("Trilogy|Definitive|Enhanced", case=False, na=False)
+mask_legacy = df_final['final_name'].str.contains("Legacy", case=False, na=False) # Hogwarts Legacy vb.
+mask_cs2 = df_final['final_name'].str.contains("Counter-Strike 2", case=False, na=False) # CS2
+
+mask_remove_sport = mask_gta | mask_legacy | mask_cs2
+
+if mask_remove_sport.any():
+    affected_games = df_final.loc[mask_remove_sport, 'final_name'].unique()
+    df_final.loc[mask_remove_sport, 'gen_sports_racing'] = 0
+    print(f"   ✅ Şu oyunlardan 'Sports/Racing' kaldırıldı: {', '.join(affected_games[:5])}...")
 
 # --- ADIM 14: NUM_REVIEWS SÜTUNUNU MODELE HAZIRLAMA ---
+
+print("\n🔄 Normalizasyon yeniden hesaplanıyor...")
 
 # 1. Logaritma Alma (Uçurumu Kapatma)
 # np.log1p fonksiyonu log(1 + x) işlemini yapar. 
