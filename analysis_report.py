@@ -2,11 +2,11 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.naive_bayes import GaussianNB
-from sklearn.metrics import confusion_matrix, accuracy_score, classification_report
+from sklearn.metrics import confusion_matrix, accuracy_score, f1_score, classification_report
 import pickle
 
 # --- 1. VERİYİ YÜKLEME ---
@@ -22,146 +22,202 @@ except FileNotFoundError:
         print("❌ Hata: CSV dosyası bulunamadı!")
         exit()
 
-# --- 2. HEDEF BELİRLEME (HIT PREDICTION) ---
-threshold = df['num_reviews_total'].median()
-df['is_hit'] = (df['num_reviews_total'] > threshold).astype(int)
+# --- 2. HEDEF BELİRLEME VE VERİ DENGELEME ---
+threshold = df['num_reviews_total'].quantile(0.75)
+df_hits = df[df['num_reviews_total'] > threshold].copy()
+df_niche_candidates = df[df['num_reviews_total'] <= threshold].copy()
 
-print(f"\n🎯 HEDEF: Popülerlik Tahmini (Eşik Değeri: {threshold:.0f} inceleme)")
-print(f"   Hit Olanlar (1): {df['is_hit'].sum()}")
-print(f"   Niche Olanlar (0): {len(df) - df['is_hit'].sum()}")
+df_hits['is_hit'] = 1
+df_niche_candidates['is_hit'] = 0
 
-# Model Girdileri (Features)
+print(f"\n🎯 HEDEF: Popülerlik Tahmini (Eşik: {threshold:.0f} inceleme)")
+
+# Dengeleme
+if len(df_niche_candidates) >= len(df_hits):
+    df_niche_balanced = df_niche_candidates.sample(n=len(df_hits), random_state=42)
+else:
+    df_niche_balanced = df_niche_candidates
+
+df = pd.concat([df_hits, df_niche_balanced])
+df = df.sample(frac=1, random_state=42).reset_index(drop=True)
+
+print(f"\n⚖️ VERİ SETİ DENGELENDİ (50/50)")
+print(f"   Analiz Edilecek Toplam Veri: {len(df)}")
+
+# Model Girdileri
 drop_cols = ['final_name', 'header_image', 'cluster_label', 'pca_x', 'pca_y', 
              'num_reviews_total', 'norm_reviews', 'is_hit']
 features = [col for col in df.columns if col not in drop_cols and df[col].dtype in [np.float64, np.int64]]
 
 X = df[features]
-
-# --- DÜZELTME: EKSİK VERİLERİ DOLDURMA ---
 X = X.fillna(X.mean())
-print(f"   🛠️ Eksik veriler (NaN) ortalama değerlerle dolduruldu.")
-
 y = df['is_hit']
 
-# Veriyi Bölme (%70 Eğitim, %30 Test)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
+# --- 2.1 VERİ DENGESİ GRAFİĞİ ---
+plt.figure(figsize=(6, 5))
+ax = sns.countplot(x=df['is_hit'], palette='viridis')
+plt.title('Dengelenmiş Veri Dağılımı')
+plt.xticks([0, 1], ['Niche (0)', 'Hit (1)'])
+for container in ax.containers:
+    ax.bar_label(container, fmt='%d', padding=3, fontweight='bold')
+plt.tight_layout()
+plt.savefig("veri_dengesi_grafigi.png")
+print("   ✅ 'veri_dengesi_grafigi.png' kaydedildi.")
 
-# --- 3. KORELASYON ANALİZİ (GÖREV 1) ---
-print("\n📊 1. KORELASYON MATRİSİ OLUŞTURULUYOR...")
 
-# Analiz edilecek sayısal sütunlar
+# --- 3. KORELASYON GRAFİĞİ ---
+print("\n📊 1. KORELASYON GRAFİĞİ OLUŞTURULUYOR...")
 corr_cols = ['final_price', 'metacritic_score', 
              'gen_action', 'gen_rpg', 'gen_indie', 'cat_multiplayer', 'is_recent','is_hit']
-
-# Sadece veri setinde mevcut olanları al
 existing_cols = [c for c in corr_cols if c in df.columns]
 corr_matrix = df[existing_cols].corr()
 
 plt.figure(figsize=(10, 8))
 sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
-plt.title("Oyun Özellikleri Arasındaki Korelasyon")
+plt.title("Özellik Korelasyonları")
 plt.tight_layout()
-plt.savefig("korelasyon_matrisi.png")
-print("   ✅ 'korelasyon_matrisi.png' kaydedildi.")
+plt.savefig("korelasyon_grafigi.png")
+print("   ✅ 'korelasyon_grafigi.png' kaydedildi.")
 
 
-# --- 4. MODEL KARŞILAŞTIRMA (GÖREV 2: EN AZ 3 MODEL) ---
-print("\n🤖 2. MODELLER EĞİTİLİYOR VE KARŞILAŞTIRILIYOR...")
+# --- 4. MODEL ANALİZİ (GRAFİKLERLE) ---
+print("\n🤖 2. MODELLERİN GRAFİKSEL ANALİZİ...")
 
-# Kullanılacak Modeller
 models = {
     "Decision Tree": DecisionTreeClassifier(max_depth=8, random_state=42),
-    "Random Forest": RandomForestClassifier(n_estimators=100, random_state=42),
+    "Random Forest": RandomForestClassifier(n_estimators=100, random_state=42,max_depth=10),
     "Naive Bayes": GaussianNB()
 }
 
-results = {}
+performance_summary = []
 best_model_name = ""
-best_score = 0
+best_test_f1 = 0
 best_model_obj = None
 
-# Modelleri döngü ile eğitip test edelim
 for name, model in models.items():
-    try:
-        model.fit(X_train, y_train)
-        y_pred = model.predict(X_test)
-        acc = accuracy_score(y_test, y_pred)
-        results[name] = acc
-        
-        print(f"   👉 {name} Başarısı: %{acc*100:.2f}")
-        
-        # En iyiyi kaydet
-        if acc > best_score:
-            best_score = acc
-            best_model_name = name
-            best_model_obj = model
-            
-    except Exception as e:
-        print(f"   ❌ {name} çalışırken hata oluştu: {e}")
-
-# Karşılaştırma Grafiği
-if results:
-    plt.figure(figsize=(8, 5))
-    plt.bar(results.keys(), results.values(), color=['skyblue', 'lightgreen', 'salmon'])
-    plt.ylim(0, 1.05)
-    plt.ylabel('Doğruluk (Accuracy)')
-    plt.title('Sınıflandırma Modellerinin Başarı Karşılaştırması')
-    for i, v in enumerate(results.values()):
-        plt.text(i, v + 0.02, f"%{v*100:.1f}", ha='center', fontweight='bold')
+    print(f"\n   👉 {name} Grafikleri Hazırlanıyor...")
+    safe_name = name.replace(" ", "_")
+    
+    # 1. Eğitim
+    model.fit(X_train, y_train)
+    y_train_pred = model.predict(X_train)
+    y_test_pred = model.predict(X_test)
+    
+    # 2. Metrikler
+    acc_train = accuracy_score(y_train, y_train_pred)
+    acc_test = accuracy_score(y_test, y_test_pred)
+    f1_test = f1_score(y_test, y_test_pred)
+    
+    # --- 4.1 SINIFLANDIRMA RAPORU GRAFİĞİ (HEATMAP) ---
+    report_dict = classification_report(y_test, y_test_pred, output_dict=True)
+    df_report = pd.DataFrame(report_dict).transpose()
+    
+    df_plot = df_report.loc[['0', '1'], ['precision', 'recall', 'f1-score']]
+    df_plot.index = ['Niche', 'Hit']
+    
+    plt.figure(figsize=(6, 4))
+    sns.heatmap(df_plot, annot=True, cmap='RdYlGn', fmt='.2f', vmin=0, vmax=1)
+    plt.title(f"Detaylı Performans Analizi - {name}")
     plt.tight_layout()
-    plt.savefig("model_karsilastirma.png")
-    print("   ✅ 'model_karsilastirma.png' kaydedildi.")
+    plt.savefig(f"performans_grafigi_{safe_name}.png")
+    plt.close()
+    print(f"      ✅ 'performans_grafigi_{safe_name}.png' kaydedildi.")
 
-
-# --- 5. EN İYİ MODELİN DETAYLARI VE KAYDEDİLMESİ ---
-if best_model_obj:
-    print(f"\n🏆 KAZANAN MODEL: {best_model_name} (Skor: %{best_score*100:.2f})")
-
-    y_pred_best = best_model_obj.predict(X_test)
-    cm = confusion_matrix(y_test, y_pred_best)
-
-    plt.figure(figsize=(6, 5))
+    # --- 4.2 CONFUSION MATRIX GRAFİĞİ ---
+    cm = confusion_matrix(y_test, y_test_pred)
+    plt.figure(figsize=(5, 4))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
-                xticklabels=['Niche', 'Hit'], 
-                yticklabels=['Niche', 'Hit'])
-    plt.title(f"Confusion Matrix ({best_model_name})")
-    plt.xlabel("Tahmin Edilen")
-    plt.ylabel("Gerçek Durum")
+                xticklabels=['Niche', 'Hit'], yticklabels=['Niche', 'Hit'])
+    plt.title(f"Confusion Matrix - {name}")
     plt.tight_layout()
-    plt.savefig("confusion_matrix_best.png")
-    print(f"   ✅ 'confusion_matrix_best.png' kaydedildi ({best_model_name} için).")
+    plt.savefig(f"confusion_matrix_{safe_name}.png")
+    plt.close()
+    
+    performance_summary.append({
+        'Model': name,
+        'Train Acc': acc_train,
+        'Test Acc': acc_test
+    })
+    
+    if f1_test > best_test_f1:
+        best_test_f1 = f1_test
+        best_model_name = name
+        best_model_obj = model
 
-    # Modeli Kaydet
-    with open("hit_model.pkl", "wb") as f:
-        pickle.dump(best_model_obj, f)
-    print(f"   💾 '{best_model_name}' başarıyla 'hit_model.pkl' dosyasına kaydedildi.")
-
-
-# --- 6. OVERFITTING ANALİZİ (Sadece Decision Tree İçin) ---
-print("\n📈 3. OVERFITTING GRAFİĞİ (Decision Tree Derinlik Analizi)...")
-
-depths = range(1, 16)
-train_scores = []
-test_scores = []
-
-X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.3, random_state=42)
-
-for depth in depths:
-    clf = DecisionTreeClassifier(max_depth=depth, random_state=42)
-    clf.fit(X_tr, y_tr)
-    train_scores.append(accuracy_score(y_tr, clf.predict(X_tr)))
-    test_scores.append(accuracy_score(y_te, clf.predict(X_te)))
+# --- 5. KARŞILAŞTIRMA GRAFİĞİ ---
+print("\n📊 3. GENEL KARŞILAŞTIRMA GRAFİĞİ...")
+df_summary = pd.DataFrame(performance_summary)
+df_melted = df_summary.melt(id_vars="Model", value_vars=["Train Acc", "Test Acc"], 
+                            var_name="Veri Seti", value_name="Başarı")
 
 plt.figure(figsize=(10, 6))
-plt.plot(depths, train_scores, 'bo-', label='Eğitim Başarısı')
-plt.plot(depths, test_scores, 'ro-', label='Test Başarısı')
-plt.title('Overfitting Analizi: Ağaç Derinliği vs Başarı')
-plt.xlabel('Derinlik')
-plt.ylabel('Doğruluk')
+sns.barplot(data=df_melted, x="Model", y="Başarı", hue="Veri Seti", palette="viridis")
+plt.ylim(0, 1.1)
+plt.title("Model Başarı Karşılaştırması (Train vs Test)")
+plt.ylabel("Accuracy Score")
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.tight_layout()
+plt.savefig("basari_karsilastirma_grafigi.png")
+print("   ✅ 'basari_karsilastirma_grafigi.png' kaydedildi.")
+
+
+# --- 6. MODEL KAYDETME ---
+if best_model_obj:
+    print(f"\n🏆 KAZANAN MODEL: {best_model_name} (F1: %{best_test_f1*100:.2f})")
+    with open("hit_model.pkl", "wb") as f:
+        pickle.dump(best_model_obj, f)
+    print(f"   💾 Model 'hit_model.pkl' olarak kaydedildi.")
+
+
+# --- 7. DERİNLİK ANALİZİ GRAFİĞİ (Decision Tree) ---
+print("\n📈 4. DECISION TREE ANALİZİ (Derinlik vs Başarı)...")
+depths = range(1, 16)
+tr_sc, te_sc = [], []
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.3, random_state=42)
+
+for d in depths:
+    clf = DecisionTreeClassifier(max_depth=d, random_state=42)
+    clf.fit(X_tr, y_tr)
+    tr_sc.append(accuracy_score(y_tr, clf.predict(X_tr)))
+    te_sc.append(accuracy_score(y_te, clf.predict(X_te)))
+
+plt.figure(figsize=(10, 6))
+plt.plot(depths, tr_sc, 'bo-', label='Eğitim (Train)')
+plt.plot(depths, te_sc, 'ro-', label='Test')
+plt.title('Overfitting Analizi: Decision Tree (Derinlik)')
+plt.xlabel('Ağaç Derinliği')
+plt.ylabel('Accuracy')
 plt.legend()
 plt.grid(True)
-plt.savefig("overfitting_analizi_grafigi.png")
-print(f"   ✅ 'overfitting_analizi_grafigi.png' kaydedildi.")
+plt.savefig("dt_derinlik_grafigi.png")
+print(f"   ✅ 'dt_derinlik_grafigi.png' kaydedildi.")
+
+
+# --- 8. YENİ: RANDOM FOREST N_ESTIMATORS ANALİZİ ---
+print("\n🌲 5. RANDOM FOREST ANALİZİ (Ağaç Sayısı vs Başarı)...")
+# Ağaç sayılarını belirle (10'dan 200'e kadar)
+estimator_range = [10, 30, 50, 80, 100, 150, 200]
+tr_sc_rf, te_sc_rf = [], []
+
+for n in estimator_range:
+    # random_state sabit ki karşılaştırma adil olsun
+    rf = RandomForestClassifier(n_estimators=n, random_state=42,max_depth=10) 
+    rf.fit(X_tr, y_tr)
+    
+    tr_sc_rf.append(accuracy_score(y_tr, rf.predict(X_tr)))
+    te_sc_rf.append(accuracy_score(y_te, rf.predict(X_te)))
+
+plt.figure(figsize=(10, 6))
+plt.plot(estimator_range, tr_sc_rf, 'bo-', label='Eğitim (Train)')
+plt.plot(estimator_range, te_sc_rf, 'ro-', label='Test')
+plt.title('Overfitting Analizi: Random Forest (n_estimators)')
+plt.xlabel('Ağaç Sayısı (n_estimators)')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.grid(True)
+plt.savefig("rf_estimator_grafigi.png")
+print(f"   ✅ 'rf_estimator_grafigi.png' kaydedildi.")
 
 print("\n✅ TÜM İŞLEMLER TAMAMLANDI.")

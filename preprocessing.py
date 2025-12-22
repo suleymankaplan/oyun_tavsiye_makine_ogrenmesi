@@ -20,8 +20,14 @@ print(f"Ham Veri - Steam: {len(df_steam)}, Epic: {len(df_epic)}")
 def is_bundle_or_junk(text):
     if not isinstance(text, str): return False
     text = text.lower()
-    bundle_keywords = ['bundle', ' pack', 'collection', 'edition', 'season pass', 'dlc', 'franchise']
-    junk_keywords = ['prologue', 'playtest', 'demo', 'soundtrack', ' artbook', 'server', 'beta', 'test branch','modkit']
+    bundle_keywords = ['bundle', ' pack', 
+                       'collection', 'edition',
+                       'season pass', 'dlc',
+                       'franchise']
+    junk_keywords = ['prologue', 'playtest',
+                     'demo', 'soundtrack', 
+                     ' artbook', 'server', 
+                     'beta', 'test branch','modkit']
     all_bad_keywords = bundle_keywords + junk_keywords
     if any(keyword in text for keyword in all_bad_keywords):
         return True
@@ -31,8 +37,12 @@ def advanced_clean_name(text):
     if not isinstance(text, str): return None
     text = text.lower()
     text = re.sub(r'[®™©]', '', text)
-    junk_words = [r'standard edition', r'deluxe edition', r'gold edition', r'ultimate edition',
-                  r'game of the year edition', r'goty', r'directors cut', r'remastered', r'anniversary edition']
+    junk_words = [r'standard edition', 
+                  r'deluxe edition', r'gold edition', 
+                  r'ultimate edition',
+                  r'game of the year edition', r'goty', 
+                  r'directors cut', r'remastered', 
+                  r'anniversary edition']
     for junk in junk_words:
         text = re.sub(junk, '', text)
     return re.sub(r'[^a-z0-9]', '', text)
@@ -67,10 +77,13 @@ cols_to_drop_steam = [
     "detailed_description", "about_the_game", "short_description",
     "website", "support_url", "support_email", "metacritic_url",
     "achievements", "notes", "packages", "screenshots", "movies","full_audio_languages", 
-    "discount","user_score","score_rank","required_age","peak_ccu"
+    "discount","user_score","score_rank","required_age","peak_ccu",
+    "estimated_owners","average_playtime_forever","average_playtime_2weeks",
+    "median_playtime_forever","median_playtime_2weeks","pct_pos_total",
+    "pct_pos_recent","num_reviews_recent"
+    
 ]
 df_steam = df_steam.drop(columns=[c for c in cols_to_drop_steam if c in df_steam.columns], axis=1)
-
 
 # --- ADIM 2: EPIC ÖN İŞLEME ---
 
@@ -114,12 +127,6 @@ df_final['final_price'] = df_final['price'].combine_first(df_final['price_epic']
 df_final['genres'] = df_final['genres'].combine_first(df_final['genres_epic'])
 df_final['release_year'] = df_final['release_year'].combine_first(df_final['release_year_epic']).fillna(2020)
 
-if 'pct_pos_total' in df_final.columns:
-    avg_score = df_final['pct_pos_total'].mean()
-    df_final['pct_pos_total'] = df_final['pct_pos_total'].fillna(avg_score)
-else:
-    df_final['pct_pos_total'] = 70
-
 df_final['windows'] = df_final['windows'].combine_first(df_final['windows_epic']).fillna(1)
 df_final['mac'] = df_final['mac'].combine_first(df_final['mac_epic']).fillna(0)
 df_final['linux'] = df_final['linux'].combine_first(df_final['linux_epic']).fillna(0)
@@ -143,7 +150,7 @@ manual_games = [
         # Minecraft için kritik özellikler eklendi:
         'categories': 'Single-player, Multi-player, Co-op, Online Co-op, Shared/Split Screen, Full controller support',
         'release_year': 2011,
-        'on_steam': 0, 'on_epic': 0, 'num_reviews_total': 1000000, 'pct_pos_total': 95,
+        'on_steam': 0, 'on_epic': 0, 'num_reviews_total': 1000000,
         'windows': 1, 'mac': 1, 'linux': 1,
         'header_image': 'https://image.api.playstation.com/vulcan/img/rnd/202010/2119/UtZW37q1Q06a5961Q8k5s583.png'
     }
@@ -483,8 +490,6 @@ df_final = df_final.drop(columns=[c for c in cols_to_clean if c in df_final.colu
 # Eksik sayısal veriler (Model bozulmasın diye 0 ile doldur)
 df_final['num_reviews_total'] = df_final['num_reviews_total'].fillna(0)
 df_final['metacritic_score'] = df_final['metacritic_score'].fillna(0)
-if 'pct_pos_total' in df_final.columns:
-    df_final['pct_pos_total'] = df_final['pct_pos_total'].fillna(50)
 for col in ['windows', 'mac', 'linux']:
     df_final[col] = df_final[col].fillna(0).astype(int)
 
